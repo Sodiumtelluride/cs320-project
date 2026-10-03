@@ -17,8 +17,8 @@ export class Scraper {
 
     constructor() {}
 
-    async runScraper() {
-        return await this.beginScrape(DINING_DOMAIN + MENU_PAGE + dc_URLs[0]);
+    async runScraper(path : string) {
+        return await this.beginScrape(DINING_DOMAIN + path);
     }
 
     // Actual scaper method
