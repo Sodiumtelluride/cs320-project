@@ -25,4 +25,14 @@ export class DataNode{
         this.data = new Map<string, string | DataNode>();
     }
     public data : Map<string,string | DataNode>;
+
+    public toString(indent = "") : string{
+        var str = "";
+        Array.from(this.data.keys()).forEach((key : string)=>{
+            str += "\n" + indent+ key +" : ";
+            str += this.data.get(key)?.toString(indent + "         ");
+            str += "  \n "+ indent +" - - - - - - - - - ";
+        });
+        return str;
+    }
 }
