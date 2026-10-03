@@ -20,7 +20,7 @@
   },
   "homepage": "https://github.com/Sodiumtelluride/cs320-project#readme",
   "devDependencies": {
-    "@types/node": "^26.6.3"
+    "@types/node": "^26.6.4"
   },
   "dependencies": {
     "node-html-parser": "^9.0.4"

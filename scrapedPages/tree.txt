@@ -1,0 +1,155 @@
+
+lunch_menu :   
+  - - - - - - - - - 
+Breakfast Entrees :   
+  - - - - - - - - - 
+GENERAL MILLS Apple Turnover :   
+  - - - - - - - - - 
+data-dish-name : Pancake Bar (Peanuts, Almonds, Walnuts)  
+  - - - - - - - - - 
+data-healthfulness : 20  
+  - - - - - - - - - 
+data-carbon-list : B  
+  - - - - - - - - - 
+data-ingredient-list : Buttermilk Pancakes (Water, Buttermilk Pancake Mix (Enriched Flour Bleached (Wheat Flour, Malted Barley Flour, Niacin, Iron, Thiamin Mononitrate, Riboflavin, Folic Acid), Degermed Yellow Corn Meal, Dextrose, Sugar, Modified Whey, Palm Oil, Leavening (Baking Soda, Sodium Aluminum Phosphate), Defatted Soy Flour, Buttermilk, Salt, Soy Lecithin, Citric Acid, Annatto And Turmeric Extract Color, Nonfat Milk, Eggs With Sodium Silicoaluminate), Pan Spray (Canola Oil, Caprylic/Capric Triglycerides, Phosphated Mono and Diglycerides [Corn], Silicon Dioxide, Calcium Stearate, Propellant)), Local Unsalted Butter (Cream (Milk), Natural Flavoring), Fresh Bananas, Fresh Blueberries  , Snicker Topping   (Milk Chocolate (Sugar, Cocoa Butter, Chocolate, Skim Milk, Lactose, Milkfat, Soy Lecithin), Peanuts, Corn Syrup, Sugar, Palm Oil, Skim Milk, Lactose, Salt, Egg Whites, Artificial Flavor), Oreo Cookie Crumbs (Unbleached Enriched Flour (Wheat Flour, Niacin, Reduced Iron, Thiamine Mononitrate [Vitamin B1], Riboflavin [Vitamin B2], Folic Acid), Sugar, Palm Oil, Soybean and/or Canola Oil, Cocoa (processed with Alkali), Invert Sugar, Leavening (Baking Soda and/or Calcium Phosphate), Soy Lecithin, Salt, Chocolate, Natural Flavor), Semi-Sweet Chocolate Chips (Semi-Sweet Chocolate (Sugar, Chocolate, Cocoa Butter, Milk Fat, Soy Lecithin, Vanillin, Artificial Flavor, Milk)), M&M's Milk Chocolate (Milk Chocolate (Sugar, Chocolate, Skim Milk, Cocoa Butter, Lactose, Milkfat, Soy Lecithin, Salt, Natural Flavor), Sugar, Cornstarch, Less than 1% - Corn Syrup, Dextrin, Colors (includes Blue 1 Lake, Yellow 6, Red 40, Yellow 5, Blue 1, Yellow 6 Lake, Red 40 Lake, Yellow 5 Lake, Blue 2 Lake, Blue 2), Carnauba Wax, Gum Acacia. May contain Peanuts, Tree Nuts, Egg, and Wheat), Dark Raisins (Natural Seedless Raisins), Sliced Almonds (Almonds, Blanched), Walnut Pieces, Dried Craisins (Cranberries, Sugar. Refined Sunflower Oil)  
+  - - - - - - - - - 
+data-allergens : Milk, Eggs, Tree Nuts, Peanuts, Gluten, Soy, Corn  , Wheat  
+  - - - - - - - - - 
+data-recipe-webcode : LPR VGT H2 CR2  
+  - - - - - - - - - 
+data-clean-diet-str : Local, Vegetarian  
+  - - - - - - - - - 
+data-serving-size : 2 EACH  
+  - - - - - - - - - 
+data-calories : 354  
+  - - - - - - - - - 
+data-calories-from-fat : 132  
+  - - - - - - - - - 
+data-total-fat : 14.6g  
+  - - - - - - - - - 
+data-total-fat-dv : 19  
+  - - - - - - - - - 
+data-sat-fat : 6.2g  
+  - - - - - - - - - 
+data-sat-fat-dv :   
+  - - - - - - - - - 
+data-trans-fat : 0g  
+  - - - - - - - - - 
+data-cholesterol : 25.3mg  
+  - - - - - - - - - 
+data-cholesterol_dv :   
+  - - - - - - - - - 
+data-sodium : 489mg  
+  - - - - - - - - - 
+data-sodium-dv : 21  
+  - - - - - - - - - 
+data-total-carb : 51.5g  
+  - - - - - - - - - 
+data-total-carb-dv : 40  
+  - - - - - - - - - 
+data-dietary-fiber : 1.8g  
+  - - - - - - - - - 
+data-dietary-fiber-dv : 5  
+  - - - - - - - - - 
+data-sugars : 17.4g  
+  - - - - - - - - - 
+data-sugars-dv :   
+  - - - - - - - - - 
+data-protein : 6.6g  
+  - - - - - - - - - 
+data-protein-dv : 12  
+  - - - - - - - - - 
+Hot Oatmeal :   
+  - - - - - - - - - 
+Omelet Station :   
+  - - - - - - - - - 
+Red Potato Home Fries :   
+  - - - - - - - - - 
+Rstd Tomato, Bean & Mushroom Breakfast :   
+  - - - - - - - - - 
+Scrambled Eggs :   
+  - - - - - - - - - 
+Sliced Kielbasa :   
+  - - - - - - - - - 
+Breakfast Pastries :   
+  - - - - - - - - - 
+Blueberry Blizzard Coffeecake (Pecans, Walnuts) :   
+  - - - - - - - - - 
+Soups :   
+  - - - - - - - - - 
+Roasted Chicken Noodle Soup w/Herbs :   
+  - - - - - - - - - 
+Tomato Basil Soup :   
+  - - - - - - - - - 
+Grill Station :   
+  - - - - - - - - - 
+Black Bean Burger :   
+  - - - - - - - - - 
+Grilled Chicken Breast :   
+  - - - - - - - - - 
+Halal French Fries :   
+  - - - - - - - - - 
+Halal SPARE Beef Burger :   
+  - - - - - - - - - 
+Hand Cut Sweet Potato Fries :   
+  - - - - - - - - - 
+International  :   
+  - - - - - - - - - 
+Jasmine Rice :   
+  - - - - - - - - - 
+Mei Fun Noodles :   
+  - - - - - - - - - 
+Pork Stir Fry :   
+  - - - - - - - - - 
+Pulmuone Tofu w/Garlic Sauce :   
+  - - - - - - - - - 
+Stir Fry Green Vegetables :   
+  - - - - - - - - - 
+Vegetable Spring Rolls :   
+  - - - - - - - - - 
+Pasta Bar :   
+  - - - - - - - - - 
+Baked Ziti :   
+  - - - - - - - - - 
+Marinara Sauce :   
+  - - - - - - - - - 
+Spaghetti :   
+  - - - - - - - - - 
+Tomato Pesto Cream :   
+  - - - - - - - - - 
+Whole Grain Penne :   
+  - - - - - - - - - 
+Deli Bar :   
+  - - - - - - - - - 
+American Cheese :   
+  - - - - - - - - - 
+Deli Beef :   
+  - - - - - - - - - 
+Homemade Mid Eastern Hummus :   
+  - - - - - - - - - 
+Provolone Cheese :   
+  - - - - - - - - - 
+Tuna Salad :   
+  - - - - - - - - - 
+Turkey Breast :   
+  - - - - - - - - - 
+Desserts :   
+  - - - - - - - - - 
+Apple Walnut Crisp :   
+  - - - - - - - - - 
+M&M Brownies :   
+  - - - - - - - - - 
+Noodle Bowl :   
+  - - - - - - - - - 
+Tantanmen Ramen Bar :   
+  - - - - - - - - - 
+Pizza :   
+  - - - - - - - - - 
+Cheese Pizza :   
+  - - - - - - - - - 
+Pepperoni Pizza :   
+  - - - - - - - - - 
+Display Station :   
+  - - - - - - - - - 
+Pancake Bar (Peanuts, Almonds, Walnuts) :   
+  - - - - - - - - - 

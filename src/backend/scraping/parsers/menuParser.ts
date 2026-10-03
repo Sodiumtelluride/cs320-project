@@ -43,17 +43,19 @@ export class MenuParser extends Parser{
     ];
     
     getData() {
-        const diningHall : DataNode = new DataNode();
+        const diningHall = new DataNode();
         
         for(const menuName of this.menuNames) {
-            const menu = diningHall.data.set(menuName, new DataNode());
+            const menu = new DataNode();
+            diningHall.data.set(menuName, menu);
             this.generateMenu(menu, menuName);
         }
 
+        console.log(diningHall.toString());
         return diningHall;
     }
 
-    generateMenu(menu: Map<string, string | DataNode>, menuName: string) {
+    generateMenu(menu: DataNode, menuName: string) {
         // Get the menu div
         const menuDiv = this.root.querySelector('#' + menuName);
 
@@ -76,7 +78,8 @@ export class MenuParser extends Parser{
             if(child.classNames.includes("menu_category_name")) {
                 currCategoryID = child.text;
                 if(menu && typeof menu !== "string") {
-                    currCategory = menu.set(currCategoryID, new DataNode());
+                    currCategory = new DataNode();
+                    menu.data.set(currCategoryID, currCategory);
                 }
             }
             // Handle food items
@@ -85,13 +88,13 @@ export class MenuParser extends Parser{
                     // Add meal to menu
                     const itemName = element.getAttribute(this.menuItemAttributes[0]);
                     if(currCategory && itemName) {
-                        const currMeal = currCategory.set(itemName, new DataNode())
+                        const currMeal = new DataNode();
+                        currCategory.data.set(itemName, currMeal)
 
                         // Add all attributes to meal item
                         for(const attribute of this.menuItemAttributes) {
                             const attributeValue = element.getAttribute(attribute);
-                            currMeal.set(attribute, attributeValue ? attributeValue : "");
-                            console.log(attributeValue);
+                            currMeal.data.set(attribute, attributeValue ? attributeValue : "");
                         }
                     }
                 }
