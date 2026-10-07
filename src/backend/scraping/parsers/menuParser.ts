@@ -92,8 +92,21 @@ export class MenuParser extends Parser{
 
                         // Add all attributes to meal item
                         for(const attribute of this.menuItemAttributes) {
-                            const attributeValue = element.getAttribute(attribute);
-                            currMeal.data.set(attribute, attributeValue ? attributeValue : "");
+                            if(attribute === "data-ingredient-list"){
+                                const ingredients = element.getAttribute(attribute)?.split(", ");
+                                const ingredientNode = new DataNode();
+                                if(ingredients !== undefined){
+                                    let ingredientN = 0;
+                                    for(const ingredient of ingredients){
+                                        ingredientN ++;
+                                        ingredientNode.data.set("ingredient " + ingredientN,ingredient);
+                                    }
+                                }
+                                currMeal.data.set(attribute, ingredientNode);
+                            } else {
+                                const attributeValue = element.getAttribute(attribute);
+                                currMeal.data.set(attribute, attributeValue ? attributeValue : "");
+                            }
                         }
                     }
                 }
