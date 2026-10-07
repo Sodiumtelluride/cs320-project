@@ -31,7 +31,7 @@ export class DataNode{
         Array.from(this.data.keys()).forEach((key : string)=>{
             str += "\n" + indent+ key +" : ";
             str += this.data.get(key)?.toString(indent + "         ");
-            str += "  \n "+ indent;
+            str += "   "+ indent;
             if(typeof this.data.get(key) === "string") " - - - - - - - - - ";
         });
         return str;

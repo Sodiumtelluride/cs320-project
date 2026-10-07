@@ -51,7 +51,6 @@ export class MenuParser extends Parser{
             this.generateMenu(menu, menuName);
         }
 
-        console.log(diningHall.toString());
         return diningHall;
     }
 
