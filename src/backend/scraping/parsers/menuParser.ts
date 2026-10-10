@@ -95,7 +95,8 @@ export class MenuParser extends Parser{
                         // Add all attributes to meal item
                         for(const attribute of this.menuItemAttributes) {
                             if(attribute === "data-ingredient-list"){
-                                const ingredients = element.getAttribute(attribute)?.split(", ");
+                                var ingredients = [] as string[];
+                                ingredients = this.splitIngredient(element.getAttribute(attribute));
                                 const ingredientNode = new DataNode();
                                 if(ingredients !== undefined){
                                     let ingredientN = 0;
@@ -114,5 +115,23 @@ export class MenuParser extends Parser{
                 }
             }
         }
+    }
+
+    private splitIngredient(originalSTR : string | undefined) : string[] {
+        const returnArr = [] as string[];
+        if(originalSTR == undefined) return returnArr;
+        var tempSTR = "";
+        var insideParenth = false;
+        for(const char of originalSTR){
+            tempSTR += char;
+            if(char == "(") insideParenth = true;
+            else if(char == ")") insideParenth = false;
+            else if(!insideParenth && char == ",") {
+                returnArr.push(tempSTR);
+                tempSTR = "";
+            }
+        }
+        returnArr.push(tempSTR);
+        return returnArr;
     }
 }
