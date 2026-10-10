@@ -6,7 +6,7 @@ import { Scraper} from "./backend/scraping/scraper.ts";
 // Create parser
 
 const scraper = new Scraper();
-scraper.runScraper("locations-menus/berkshire/menu").then((results) => {
+scraper.runScraper("locations-menus/worcester/menu").then((results) => {
   const menu = new MenuParser(results).getData();
   console.log(menu.toString());
 });

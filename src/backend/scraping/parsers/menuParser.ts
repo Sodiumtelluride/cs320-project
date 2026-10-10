@@ -37,9 +37,11 @@ export class MenuParser extends Parser{
     ];
 
     menuNames = [
-        // "breakfast_menu",
+        "breakfast_menu",
         "lunch_menu",
-        // "dinner_menu",
+        "dinner_menu",
+        "grabngo",
+        "latenight_menu"
     ];
     
     getData() {

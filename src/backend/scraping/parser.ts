@@ -29,11 +29,15 @@ export class DataNode{
     public toString(indent = "") : string{
         var str = "";
         Array.from(this.data.keys()).forEach((key : string)=>{
-            str += "\n" + indent+ key +" : ";
-            str += this.data.get(key)?.toString(indent + "         ");
-            str += "   "+ indent;
-            if(typeof this.data.get(key) === "string") " - - - - - - - - - ";
+            const keyToPrint = key.replaceAll("\n","\\n")
+            str += "\n" + indent+ keyToPrint +" : ";
+            if(typeof(this.data.get(key)) === "string"){
+                str += this.data.get(key)?.toString(indent + "  ").replaceAll("\n","\\n");
+            } else {
+                str += this.data.get(key)?.toString(indent + "  ");
+            }
+            str += "    "+ indent;
         });
-        return str;
+        return str.replaceAll("\r","\\r");
     }
 }
