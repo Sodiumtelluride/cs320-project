@@ -44,16 +44,19 @@ export class MenuParser extends Parser{
         "latenight_menu"
     ];
     
-    getData() {
-        const diningHall = new DataNode();
+    async getData() {
+        const returnMenu = new DataNode();
         
         for(const menuName of this.menuNames) {
             const menu = new DataNode();
-            diningHall.data.set(menuName, menu);
+            if(this.root.querySelector('#' + menuName) === null){
+                continue;
+            }
+            returnMenu.data.set(menuName, menu);
             this.generateMenu(menu, menuName);
         }
 
-        return diningHall;
+        return returnMenu;
     }
 
     generateMenu(menu: DataNode, menuName: string) {

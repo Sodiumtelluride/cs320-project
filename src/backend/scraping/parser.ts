@@ -15,7 +15,7 @@ export abstract class Parser {
         this.root = parse(html);
     }
 
-    abstract getData() : DataNode;
+    abstract getData() : Promise<DataNode>;
 }
 
 /* move this function into menuParser.ts*/
