@@ -27,7 +27,7 @@ export function LoginButton({ className }: LoginButtonProps) {
           Log in
         </Button>
       </DialogTrigger>
-      <DialogContent showCloseButton={false}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Sign in is coming soon</DialogTitle>
           <DialogDescription>
