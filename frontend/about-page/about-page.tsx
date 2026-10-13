@@ -1,6 +1,4 @@
-import { ArrowUpRight, Globe2, Leaf, Users } from "lucide-react";
-import { BackButton } from "@/components/back-button";
-import { Button } from "@/components/ui/button";
+import { Globe2, Leaf, Users } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 
 const values = [
@@ -9,20 +7,16 @@ const values = [
   { icon: Users, title: "Better together", description: "A welcoming place to catch up with friends and share a meal." },
 ];
 
-export function AboutPage({ showBack = false }: { showBack?: boolean }) {
+export function AboutPage() {
   return (
     <div className="flex min-h-svh flex-col">
       <a href="#main-content" className="sr-only z-50 rounded-md bg-primary p-3 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Skip to content</a>
       <SiteHeader />
       <main id="main-content" className="mx-auto w-full max-w-5xl flex-1 px-6 py-10 sm:px-8 sm:py-16" tabIndex={-1}>
-        {showBack && <BackButton className="mb-8" />}
         <section aria-labelledby="about-title" className="max-w-3xl">
           <p className="mb-5 text-xs font-semibold tracking-[0.18em] text-primary">ABOUT UMASS AMHERST DINING</p>
           <h1 id="about-title" className="text-5xl font-bold leading-[1.08] tracking-tight sm:text-6xl">Good food.<br /><span className="text-primary">Great company.</span></h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">Fresh meals, familiar favorites, and flavors from around the world. A place to eat well and feel at home on campus.</p>
-          <Button asChild size="lg" className="mt-8">
-            <a href="https://www.umassdining.com/locations-menus">Visit UMass Dining <ArrowUpRight aria-hidden="true" /></a>
-          </Button>
         </section>
 
         <section aria-labelledby="community-title" className="mt-14 border-t pt-10 sm:mt-16 sm:pt-12">

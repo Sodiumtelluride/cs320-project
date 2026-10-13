@@ -12,10 +12,7 @@ export function SiteHeader() {
           </span>
           <span className="whitespace-nowrap text-sm font-bold tracking-tight sm:text-xl">UMass <span className="text-primary">Dining</span></span>
         </Link>
-        <nav className="flex shrink-0 items-center gap-3 sm:gap-7" aria-label="Main navigation">
-          <Link href="/about" className="rounded-sm text-sm font-medium underline-offset-4 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">About</Link>
-          <LoginButton />
-        </nav>
+        <LoginButton className="shrink-0" />
       </div>
     </header>
   );
