@@ -1,0 +1,20 @@
+
+Setting up backend using this guide here:
+
+https://www.youtube.com/watch?v=Be7X6QJusJA
+
+I chose Express JS because:
+ 1) A few others in the class are using it
+ 2) Google said it was a decent Flask alternative
+  I'm used to Flask
+ 3) I watched the whole tutorial. I'm going to use it
+
+DTOs: Data Transfer Object
+
+** BUILD WITH **
+npm run build
+
+** RUN WITH COMMAND **
+npm run start
+
+Will be using express session going forward
