@@ -8,8 +8,7 @@ export class LocationListPageParser extends Parser{
 
     async getData() {
         const locationsListNode = new DataNode();
-
-        const listedLocationsData = this.root.getElementById("dining_location")?.querySelectorAll("li");
+        const listedLocationsData = this.root.getElementById("menu_item")?.querySelectorAll("li");
         if(listedLocationsData === undefined) return locationsListNode;
         var locationNode;
         var locationTitle;
