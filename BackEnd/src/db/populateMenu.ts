@@ -16,22 +16,21 @@ export async function populateMenu(){
     const parser = new AllLocationParser(html);
     const allLocation = await parser.getData();
 
-    const diningHalls = ["berkshire", "worcester", "franklin", "hampshire"];
-    for(const diningHallName of diningHalls){
-        const diningNode = allLocation.data.get(diningHallName) as DataNode;
+    for(const [locationName, locationValue] of allLocation.data){
+        const locationNode = locationValue as DataNode;
 
-        const {data : diningHall} = await supabase
-            .from("dining_halls")
+        const menusNode = locationNode.data.get("Menus") as DataNode;
+        if(menusNode === undefined) continue;
+
+
+        const {data : location} = await supabase
+            .from("locations")
             .select("id")
-            .eq(
-                "name",
-                diningHallName.charAt(0).toUpperCase() + diningHallName.slice(1)
-            )
+            .eq("name",locationName)
             .single();
         
-        const diningHallId = diningHall!.id;
+        const locationId = location!.id;
 
-        const menusNode = diningNode.data.get("Menus") as DataNode;
 
         for(const [date, dateNode] of menusNode.data){
 
@@ -39,12 +38,12 @@ export async function populateMenu(){
 
                 const mealNode = mealNodeValue as DataNode;
 
-                for(const [, stationNodeValue] of mealNode.data){
+                for(const [stationName, stationNodeValue] of mealNode.data){
 
                     const stationNode = stationNodeValue as DataNode;
                 
-
                     for(const [itemName, itemNodeValue] of stationNode.data){
+
                         const itemNode = itemNodeValue as DataNode;
 
                         itemNode.data.set("data-dish-name", itemName);
@@ -54,7 +53,7 @@ export async function populateMenu(){
 
                         await insertIngredients(itemNode, menuItemId);
                         await insertAllergies(itemNode, menuItemId);
-                        await insertMeals(diningHallId, date, mealType, menuItemId);
+                        await insertMeals(locationId, date, mealType, menuItemId, stationName);
                     }
                 }
             }

@@ -7,6 +7,20 @@ function getString(itemNode: DataNode, attribute:string) {
     return value;
 }
 
+function cleanString(str: string): string {
+    let cleaned = str;
+    if(!cleaned.includes("(")){
+        cleaned = cleaned.replaceAll(")", "");
+    }
+    if(!cleaned.includes("[")){
+        cleaned = cleaned.replaceAll("]", "");
+    }
+
+    cleaned = cleaned.replaceAll(",", "");
+                 
+    return cleaned.trim()
+}
+
 function buildNutritionalInfo(itemNode: DataNode) {
 
     const nutritonalInfo = {
@@ -43,19 +57,25 @@ function buildIngredients(itemNode: DataNode):string[] {
     const ingredientNode = itemNode.data.get("data-ingredient-list") as DataNode;
     const ingredients:string[] = [];
     for(const[,value] of ingredientNode.data){
-        ingredients.push((value as string).trim());
+        if (value === undefined|| value === "") continue;
+
+        ingredients.push(cleanString(value as string));
     }
+    
     return ingredients;
 }
+
 
 function buildAllergies(itemNode: DataNode): string[] {
     const allergyNode = itemNode.data.get("data-allergens") as DataNode;
     const allergies:string[] = [];
     for(const[,value] of allergyNode.data){
-        allergies.push((value as string).trim());
+        if (value === undefined|| value === "") continue;
+
+        allergies.push(cleanString(value as string));
     }
     return allergies;
-}
+}  
 
 export async function insertMenuData(itemNode: DataNode){
     const nutritionalInfo = buildNutritionalInfo(itemNode);
@@ -72,6 +92,7 @@ export async function insertMenuData(itemNode: DataNode){
 
 export async function insertIngredients(itemNode: DataNode, menuItemId: number) {
     const ingredients= buildIngredients(itemNode);
+
     for (const ingredient of ingredients) {
         const { data, error} = await supabase
             .from("ingredients")
@@ -130,17 +151,17 @@ export async function insertAllergies(ItemNode: DataNode, menuItemId: number) {
     }
 }
 
-export async function insertMeals(diningHallId: number, date: string, mealType: string, menuItemId: number) {
+export async function insertMeals(locationId: number, date: string, mealType: string, menuItemId: number, stationName: string) {
     const {data, error} = await supabase
         .from("meals")
         .upsert(
             {
-                dining_hall_id: diningHallId,
+                location_id: locationId,
                 date: date,
                 meal_type: mealType
             },
             {
-                onConflict: "dining_hall_id, date, meal_type"
+                onConflict: "location_id, date, meal_type"
             
             }
         )
@@ -156,10 +177,11 @@ export async function insertMeals(diningHallId: number, date: string, mealType: 
         .upsert(
             {
                 meal_id: data.id,
-                menu_item_id: menuItemId
+                menu_item_id: menuItemId,
+                station: stationName
             },
             {
-                onConflict: "meal_id, menu_item_id"
+                onConflict: "meal_id, menu_item_id, station"
             }
         )
     
