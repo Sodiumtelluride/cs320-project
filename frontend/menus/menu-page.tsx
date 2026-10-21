@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Menus } from "@/components/menus/menus";
 import { createHttpMenuDataSource } from "@/lib/menus/http-menu-data-source";
@@ -30,24 +29,17 @@ function updateSelectionUrl(query: MenuQuery) {
 
 export function MenuPage({ initialHallId, initialDate, initialMeal = "lunch", dataSource = defaultDataSource, onSelectionChange = updateSelectionUrl }: MenuPageProps) {
   return (
-    <div className="flex min-h-svh flex-col">
-      <a href="#main-content" className="sr-only z-50 rounded-md bg-primary p-3 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus-visible:outline-2 focus:top-4">Skip to content</a>
-      <SiteHeader />
-      <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-5xl flex-1 px-6 py-10 sm:px-8 sm:py-12">
-        <Button asChild variant="outline" className="mb-8"><Link href="/"><ArrowLeft aria-hidden="true" />All dining halls</Link></Button>
-        <div className="mb-8">
-          <p className="mb-3 text-xs font-semibold tracking-[0.18em] text-primary">CAMPUS DINING</p>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Dining hall menus</h1>
-          <p className="mt-4 max-w-xl leading-relaxed text-muted-foreground">Choose a location, date, and meal. Select a dish for ingredients, nutrition, and reported allergens.</p>
-        </div>
-        <Menus diningHalls={DEMO_DINING_HALLS} dataSource={dataSource} initialHallId={initialHallId} initialDate={initialDate} initialMeal={initialMeal} onSelectionChange={onSelectionChange} />
-      </main>
-      <footer className="border-t">
-        <div className="mx-auto flex max-w-5xl flex-wrap justify-between gap-3 px-6 py-6 text-xs text-muted-foreground sm:px-8">
-          <p>UMass Amherst · Amherst, Massachusetts</p>
-          <Link href="/about" className="rounded-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">About UMass Dining</Link>
-        </div>
-      </footer>
-    </div>
+    <>
+      <Button asChild variant="outline" className="mb-8"><Link href="/"><ArrowLeft aria-hidden="true" />All dining halls</Link></Button>
+      <div className="mb-8">
+        <p className="mb-3 text-xs font-semibold tracking-[0.18em] text-primary">CAMPUS DINING</p>
+        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Dining hall menus</h1>
+        <p className="mt-4 max-w-xl leading-relaxed text-muted-foreground">Choose a location, date, and meal. Select a dish for ingredients, nutrition, and reported allergens.</p>
+      </div>
+      <Menus diningHalls={DEMO_DINING_HALLS} dataSource={dataSource} initialHallId={initialHallId} initialDate={initialDate} initialMeal={initialMeal} onSelectionChange={onSelectionChange} />
+      <p className="mt-8 text-sm">
+        <Link href="/about" className="rounded-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">About UMass Dining</Link>
+      </p>
+    </>
   );
 }

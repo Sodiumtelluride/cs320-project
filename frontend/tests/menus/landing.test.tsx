@@ -9,10 +9,6 @@ import { DEMO_DINING_HALLS } from "@/lib/menus/dining-halls";
 import { createMockMenuDataSource } from "@/lib/menus/mock-menu-data-source";
 import { menuHref } from "@/lib/menus/links";
 
-vi.mock("@/components/site-header", () => ({
-  SiteHeader: () => <header />,
-}));
-
 afterEach(() => {
   cleanup();
   window.history.replaceState(null, "", "/");

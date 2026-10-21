@@ -8,7 +8,7 @@ import { MenuPage } from "@/menus/menu-page";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Menus | UMass Dining",
+  title: "Menus",
   description: "Explore dining hall menus, ingredients, nutrition information, and reported allergens.",
 };
 

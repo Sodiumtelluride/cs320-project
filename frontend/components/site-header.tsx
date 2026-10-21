@@ -1,7 +1,22 @@
+"use client";
+
 import Link from "next/link";
-import { Utensils } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Home, Info, Map, UserRound, Utensils } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
+import { Button } from "@/components/ui/button";
+
+const links = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/map", label: "Map", icon: Map },
+  { href: "/menus", label: "Menus", icon: Utensils },
+  { href: "/profile", label: "Profile", icon: UserRound },
+  { href: "/about", label: "About", icon: Info },
+];
 
 export function SiteHeader() {
+  const pathname = usePathname();
+  const { user, loading, openAuth } = useAuth();
   return (
     <header className="border-b">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-6 py-5 sm:px-8">
@@ -11,11 +26,22 @@ export function SiteHeader() {
           </span>
           <span className="whitespace-nowrap text-sm font-bold tracking-tight sm:text-xl">UMass <span className="text-primary">Dining</span></span>
         </Link>
-        <nav className="flex shrink-0 items-center gap-3 sm:gap-7" aria-label="Main navigation">
-          <Link href="/" className="rounded-sm text-sm font-medium underline-offset-4 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">Menus</Link>
-          <Link href="/about" className="rounded-sm text-sm font-medium underline-offset-4 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">About</Link>
-        </nav>
+        <div className="flex shrink-0 items-center gap-2">
+          {user ? <span className="text-xs text-muted-foreground sm:text-sm">Signed in</span> : <>
+            <Button variant="ghost" size="sm" disabled={loading} onClick={() => openAuth("login")}>Log in</Button>
+            <Button size="sm" disabled={loading} onClick={() => openAuth("signup")}>Sign up</Button>
+          </>}
+        </div>
       </div>
+      <nav aria-label="Main navigation" className="border-t">
+        <div className="mx-auto grid max-w-5xl grid-cols-5 gap-2 px-6 py-3 sm:px-8">
+          {links.map(({ href, label, icon: Icon }) => (
+            <Button key={href} asChild variant={pathname === href ? "default" : "ghost"} className="h-auto flex-col gap-1 px-2 py-2 text-xs sm:h-9 sm:flex-row sm:px-3 sm:text-sm">
+              <Link href={href} aria-current={pathname === href ? "page" : undefined}><Icon aria-hidden="true" />{label}</Link>
+            </Button>
+          ))}
+        </div>
+      </nav>
     </header>
   );
 }

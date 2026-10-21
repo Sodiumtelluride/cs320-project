@@ -68,7 +68,7 @@ function FoodDetailsContent({ food, query, dataSource }: {
 export function FoodDetailsDialog({ food, query, diningHallName, dataSource, returnFocusRef, onClose }: FoodDetailsDialogProps) {
   return (
     <Dialog open={food !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent showCloseButton={false} className="max-h-[85svh] gap-0 overflow-y-auto p-0 sm:max-w-3xl"
+      <DialogContent className="max-h-[85svh] gap-0 overflow-y-auto p-0 sm:max-w-3xl"
         onCloseAutoFocus={(event) => { event.preventDefault(); returnFocusRef.current?.focus(); }}>
         <DialogHeader className="p-6 text-left">
           <div className="flex items-start justify-between gap-4">
