@@ -233,3 +233,4 @@ export async function deleteAllergy(
   }
   return res.status(200).json();
 }
+
