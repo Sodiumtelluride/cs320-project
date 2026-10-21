@@ -7,7 +7,7 @@ function getString(itemNode: DataNode, attribute:string) {
     return value;
 }
 
-function cleanString(str: string): string {
+export function cleanString(str: string): string {
     let cleaned = str;
     if(!cleaned.includes("(")){
         cleaned = cleaned.replaceAll(")", "");
@@ -21,7 +21,7 @@ function cleanString(str: string): string {
     return cleaned.trim()
 }
 
-function buildNutritionalInfo(itemNode: DataNode) {
+export function buildNutritionalInfo(itemNode: DataNode) {
 
     const nutritonalInfo = {
         name: getString(itemNode, "data-dish-name"),
@@ -53,7 +53,7 @@ function buildNutritionalInfo(itemNode: DataNode) {
     return nutritonalInfo;
 }
 
-function buildIngredients(itemNode: DataNode):string[] {
+export function buildIngredients(itemNode: DataNode):string[] {
     const ingredientNode = itemNode.data.get("data-ingredient-list") as DataNode;
     const ingredients:string[] = [];
     for(const[,value] of ingredientNode.data){
@@ -66,7 +66,7 @@ function buildIngredients(itemNode: DataNode):string[] {
 }
 
 
-function buildAllergies(itemNode: DataNode): string[] {
+export function buildAllergies(itemNode: DataNode): string[] {
     const allergyNode = itemNode.data.get("data-allergens") as DataNode;
     const allergies:string[] = [];
     for(const[,value] of allergyNode.data){
