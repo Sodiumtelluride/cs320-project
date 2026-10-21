@@ -13,14 +13,6 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
 });
 // npm install express @supabase/supabase-js bcrypt dotenv
 // npm install -D typescript tsx @types/express @types/node @types/bcrypt
-//
-// .env:
-//   SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-//   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key   (server only, NEVER ship to frontend)
-//
-// Run create_user_function.sql in the Supabase SQL Editor first.
-// Dev run: npx tsx supabase-server.ts
-
 // ---------- Types ----------
 
 interface CreateUserBody {
