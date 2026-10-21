@@ -4,6 +4,12 @@ Status: proposed frontend contract. The Express menu endpoints and database iden
 
 The menu UI consumes `MenuDataSource` from `lib/menus/types.ts`. The HTTP implementation accepts a base URL, request credentials, and an optional fetch implementation. The included fixture routes use the same response contract.
 
+## Navigation
+
+The home route `/` lists the configured dining halls as cards. `/menus` shows the same location directory until a hall is selected. A selected menu uses `/menus?hall=<id>&date=<YYYY-MM-DD>&meal=<meal>`; the date and meal are optional on entry. The About page remains at `/about`.
+
+`DiningHallCards` renders links on the directory and selection buttons inside `Menus`. Location, date, and meal changes update the query parameters without adding a browser-history entry. The menu data source still receives `diningHallId`, `date`, and `meal`; the backend contract is unchanged.
+
 ## Requests
 
 | Method | Relative path | Query parameters |

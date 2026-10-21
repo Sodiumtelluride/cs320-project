@@ -1,22 +1,32 @@
 import type { Metadata } from "next";
-import { SiteHeader } from "@/components/site-header";
-import { getCampusDate } from "@/lib/menus/date";
+import { getCampusDate, isMenuDate } from "@/lib/menus/date";
+import { DEMO_DINING_HALLS } from "@/lib/menus/dining-halls";
+import { MEALS } from "@/lib/menus/types";
+import { DiningLandingPage } from "@/menus/landing-page";
 import { MenuPage } from "@/menus/menu-page";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Menus | UMass Dining",
-  description: "Browse dining hall menus, food ingredients, and nutrition information.",
+  description: "Explore dining hall menus, ingredients, nutrition information, and reported allergens.",
 };
 
-export default function MenusRoute() {
-  return (
-    <div className="flex min-h-svh flex-col">
-      <a href="#main-content" className="sr-only z-50 rounded-md bg-primary p-3 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Skip to content</a>
-      <SiteHeader />
-      <MenuPage initialDate={getCampusDate()} />
-      <footer className="border-t"><div className="mx-auto flex max-w-5xl flex-col gap-2 px-6 py-6 text-xs text-muted-foreground sm:flex-row sm:justify-between sm:px-8"><p>UMass Amherst · Amherst, Massachusetts</p><p>Student project · CS 320</p></div></footer>
-    </div>
-  );
+interface MenusRouteProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function MenusRoute({ searchParams }: MenusRouteProps) {
+  const params = await searchParams;
+  const hallId = typeof params.hall === "string" ? params.hall : undefined;
+  if (!hallId) return <DiningLandingPage />;
+
+  const hall = DEMO_DINING_HALLS.find((entry) => entry.id === hallId);
+  if (!hall) return <DiningLandingPage notice="That dining hall is not available. Choose a location below." />;
+
+  const date = typeof params.date === "string" && isMenuDate(params.date) ? params.date : getCampusDate();
+  const requestedMeal = MEALS.find((entry) => entry.id === params.meal)?.id;
+  const meal = requestedMeal && (!hall.meals || hall.meals.includes(requestedMeal)) ? requestedMeal : "lunch";
+
+  return <MenuPage key={`${hall.id}:${date}:${meal}`} initialHallId={hall.id} initialDate={date} initialMeal={meal} />;
 }

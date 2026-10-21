@@ -9,6 +9,7 @@ import { MEALS, type DiningHall, type MealId, type MenuDataSource, type MenuFood
 import { FoodDetailsDialog } from "./food-details-dialog";
 import { MenuLegend, MenuTags } from "./menu-tags";
 import { useMenuResource } from "./use-menu-resource";
+import { DiningHallCards } from "./dining-hall-cards";
 
 export interface MenusProps {
   diningHalls: readonly DiningHall[];
@@ -51,7 +52,7 @@ function MenuResults({ query, diningHallName, dataSource }: {
               <h4 className="mb-2 text-lg font-semibold">{station.name}</h4>
               <ul className="space-y-1">
                 {station.foods.map((food) => <li key={food.id} className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                  <Button variant="link" size="sm" aria-haspopup="dialog"
+                  <Button variant="ghost" size="sm" aria-haspopup="dialog"
                     className="h-auto min-h-8 max-w-full justify-start whitespace-normal px-0 py-1 text-left font-normal leading-relaxed text-foreground underline underline-offset-4 hover:text-primary"
                     onClick={(event) => { trigger.current = event.currentTarget; setSelectedFood(food); }}>
                     {food.name}
@@ -97,13 +98,13 @@ function MenuBrowser({ diningHalls, dataSource, initialHallId, initialDate, init
   return (
     <div className={cn("space-y-6", className)}>
       {dataSource.mode === "demo" && <div className="rounded-md border bg-muted/50 px-4 py-3 text-sm"><span className="font-semibold">Sample menu</span><span className="text-muted-foreground"> · Development data, not a current dining menu.</span></div>}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div><label htmlFor={`${controlsId}-hall`} className="mb-2 block text-sm font-medium">Dining hall</label>
-          <select id={`${controlsId}-hall`} className={fieldClass} value={hall.id} onChange={(event) => selectHall(event.target.value)}>
-            {diningHalls.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-          </select>
-        </div>
-        <div><label htmlFor={`${controlsId}-date`} className="mb-2 block text-sm font-medium">Menu date</label>
+      <section aria-labelledby={`${controlsId}-locations`}>
+        <h2 id={`${controlsId}-locations`} className="mb-4 text-lg font-semibold">Choose a dining hall</h2>
+        <DiningHallCards diningHalls={diningHalls} selectedHallId={hall.id} onSelect={selectHall} compact />
+      </section>
+      <div className="flex flex-wrap items-end justify-between gap-5">
+        <div><h2 className="text-2xl font-semibold tracking-tight">{hall.name} Menu</h2><p className="mt-1 text-sm text-muted-foreground">Menu for {formatMenuDate(query.date)}</p></div>
+        <div className="w-full sm:w-72"><label htmlFor={`${controlsId}-date`} className="mb-2 block text-sm font-medium">Menu date</label>
           <div className="flex gap-2">
             <Button variant="outline" className="size-10 shrink-0" aria-label="Previous day" onClick={() => select({ ...query, date: shiftMenuDate(query.date, -1) })}><ChevronLeft aria-hidden="true" /></Button>
             <input id={`${controlsId}-date`} className={cn(fieldClass, "min-w-0")} type="date" value={query.date}
@@ -112,7 +113,6 @@ function MenuBrowser({ diningHalls, dataSource, initialHallId, initialDate, init
           </div>
         </div>
       </div>
-      <div><h2 className="text-2xl font-semibold tracking-tight">{hall.name} Menu</h2><p className="mt-1 text-sm text-muted-foreground">Menu for {formatMenuDate(query.date)}</p></div>
       <div role="group" aria-label="Meal" className="flex flex-wrap gap-2">
         {availableMeals.map((entry) => <Button key={entry.id} size="sm" variant={entry.id === query.meal ? "default" : "outline"}
           aria-pressed={entry.id === query.meal} onClick={() => select({ ...query, meal: entry.id })}>{entry.label}</Button>)}

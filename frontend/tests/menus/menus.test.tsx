@@ -25,7 +25,7 @@ describe("Menus", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next day" }));
     await screen.findByRole("region", { name: "Dinner menu" });
     expect(getMenu.mock.calls.at(-1)?.[0].date).toBe("2026-10-20");
-    fireEvent.change(screen.getByLabelText("Dining hall"), { target: { value: "worcester" } });
+    fireEvent.click(screen.getByRole("button", { name: "Select Worcester" }));
     await screen.findByRole("heading", { name: "Worcester Menu" });
     await screen.findByRole("region", { name: "Dinner menu" });
     expect(getMenu.mock.calls.at(-1)?.[0].diningHallId).toBe("worcester");
@@ -35,7 +35,7 @@ describe("Menus", () => {
     mount();
     fireEvent.click(screen.getByRole("button", { name: "Grab n' Go" }));
     await screen.findByRole("button", { name: "Vegetable Wrap" });
-    fireEvent.change(screen.getByLabelText("Dining hall"), { target: { value: "hampshire" } });
+    fireEvent.click(screen.getByRole("button", { name: "Select Hampshire" }));
     await screen.findByRole("region", { name: "Lunch menu" });
     expect(screen.queryByRole("button", { name: "Grab n' Go" })).toBeNull();
   });
@@ -51,7 +51,7 @@ describe("Menus", () => {
     expect(getDetails.mock.calls.at(-1)?.[0]).toEqual({ diningHallId: "berkshire", date: initialDate, meal: "lunch", foodId: "cheddar-bisque" });
     expect(within(dialog).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("2");
     expect(within(dialog).getByText(/Milk, Eggs, Wheat, Soy/)).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close food details" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });

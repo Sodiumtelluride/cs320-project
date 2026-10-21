@@ -73,7 +73,7 @@ export function FoodDetailsDialog({ food, query, diningHallName, dataSource, ret
         <DialogHeader className="p-6 text-left">
           <div className="flex items-start justify-between gap-4">
             <DialogTitle className="pt-1 text-xl leading-snug">{food?.name ?? "Food details"}</DialogTitle>
-            <DialogClose asChild><Button variant="outline" size="sm">Close</Button></DialogClose>
+            <DialogClose asChild><Button variant="outline" size="sm" aria-label="Close food details">Close</Button></DialogClose>
           </div>
           <DialogDescription>{diningHallName} · {MEALS.find((meal) => meal.id === query.meal)?.label} · {formatMenuDate(query.date)}</DialogDescription>
         </DialogHeader>
