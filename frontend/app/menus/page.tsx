@@ -1,27 +1,32 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Utensils } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getCampusDate, isMenuDate } from "@/lib/menus/date";
+import { DEMO_DINING_HALLS } from "@/lib/menus/dining-halls";
+import { MEALS } from "@/lib/menus/types";
+import { DiningLandingPage } from "@/menus/landing-page";
+import { MenuPage } from "@/menus/menu-page";
 
-export const metadata: Metadata = { title: "Menus" };
+export const dynamic = "force-dynamic";
 
-export default function MenusPage() {
-  return (
-    <div className="space-y-8">
-      <div className="space-y-3">
-        <p className="text-xs font-semibold tracking-[0.18em] text-primary">WHAT’S ON THE MENU</p>
-        <h1 className="text-4xl font-bold tracking-tight">Menus</h1>
-        <p className="text-muted-foreground">Explore dining options without an account. Sign in only when you want to save favorites.</p>
-      </div>
-      <Card>
-        <CardHeader>
-          <Utensils className="mb-3 size-8 text-primary" aria-hidden="true" />
-          <CardTitle><h2>See what’s cooking</h2></CardTitle>
-          <CardDescription>Dining menus are coming soon. You’ll be able to browse them here as a guest.</CardDescription>
-        </CardHeader>
-        <CardContent><Button asChild variant="outline"><Link href="/map">View campus map</Link></Button></CardContent>
-      </Card>
-    </div>
-  );
+export const metadata: Metadata = {
+  title: "Menus",
+  description: "Explore dining hall menus, ingredients, nutrition information, and reported allergens.",
+};
+
+interface MenusRouteProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function MenusRoute({ searchParams }: MenusRouteProps) {
+  const params = await searchParams;
+  const hallId = typeof params.hall === "string" ? params.hall : undefined;
+  if (!hallId) return <DiningLandingPage />;
+
+  const hall = DEMO_DINING_HALLS.find((entry) => entry.id === hallId);
+  if (!hall) return <DiningLandingPage notice="That dining hall is not available. Choose a location below." />;
+
+  const date = typeof params.date === "string" && isMenuDate(params.date) ? params.date : getCampusDate();
+  const requestedMeal = MEALS.find((entry) => entry.id === params.meal)?.id;
+  const meal = requestedMeal && (!hall.meals || hall.meals.includes(requestedMeal)) ? requestedMeal : "lunch";
+
+  return <MenuPage key={`${hall.id}:${date}:${meal}`} initialHallId={hall.id} initialDate={date} initialMeal={meal} />;
 }

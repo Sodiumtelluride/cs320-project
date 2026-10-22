@@ -8,7 +8,7 @@ export const supabase = createClient(
   supabaseUrl,
   supabaseKey
 );
-/*
+
 const { data: user, error: userError } = await supabase
   .from('users')
   .insert([
@@ -47,4 +47,4 @@ const { data: allergies, error: allergiesError } = await supabase
 
 if (allergiesError) throw allergiesError;
 
-*/
+
