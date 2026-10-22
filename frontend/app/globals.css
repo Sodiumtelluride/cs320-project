@@ -6,6 +6,7 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-border: var(--border);
   --color-ring: var(--ring);
@@ -24,6 +25,7 @@
   --primary: #881c1b;
   --primary-foreground: #ffffff;
   --muted-foreground: #626262;
+  --muted: #f7f5f3;
   --accent: #faf1f1;
   --border: #e8e5e3;
   --ring: #881c1b;
