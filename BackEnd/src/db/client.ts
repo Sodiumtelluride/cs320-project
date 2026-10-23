@@ -11,6 +11,7 @@ if (!supabaseUrl || !supabaseKey) {
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: { persistSession: false },
 });
+
 // npm install express @supabase/supabase-js bcrypt dotenv
 // npm install -D typescript tsx @types/express @types/node @types/bcrypt
 // ---------- Types ----------
@@ -52,7 +53,7 @@ interface UserDetails {
 const USER_SELECT =
   "user_id, username, passwords(password_hash), favorite_foods(food_name), allergies(allergy_name)";
 
-const toUserDetails = (row: UserRow): UserDetails => ({
+export const toUserDetails = (row: UserRow): UserDetails => ({
   userId: row.user_id,
   username: row.username,
   passwordHash: row.passwords[0]?.password_hash ?? null,
@@ -72,7 +73,7 @@ const isStringList = (value: unknown): value is string[] =>
  * req.body is untrusted, so we accept `unknown` and narrow it.
  * Returns the validated body, or an error message.
  */
-function parseCreateUserBody(
+export function parseCreateUserBody(
   body: unknown
 ): { ok: true; value: CreateUserBody } | { ok: false; error: string } {
   if (typeof body !== "object" || body === null) {
@@ -104,7 +105,7 @@ function parseCreateUserBody(
 
 // ---------- App ----------
 
-const app = express();
+export const app = express();
 app.use(express.json());
 
 /**
