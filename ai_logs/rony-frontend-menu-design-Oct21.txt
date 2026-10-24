@@ -1,0 +1,167 @@
+# Website Preview
+
+## Main takeaways 
+* To make a displayable menu page using the menu components I have
+* Set up an environment to run the website on local device
+
+## Resource Usage
+
+Tool and Model(s) Used: ChatGPT 6.1 Sol
+
+## Chat Log
+
+User: Attached is my reusable menu components, I want you to implement a preview menu page with revamped landing page. The instructions are attached here. After you implementation, I want you to explain to mw what each part’s functionalities are and why you made these decisions. 
+
+Response:
+
+Implemented: the first page now lists Berkshire, Worcester, Franklin, and Hampshire as clickable cards. Selecting a card opens that hall’s menu, where all four location choices remain visible as blocks. About stays at /about.
+Open the working preview
+The preview uses sample menu data.
+Download
+Purpose
+menu-landing-update.zip
+The 34 menu and route files to apply to your frontend contribution.
+menu-landing-preview.zip
+A complete runnable Next.js frontend for local inspection and testing.
+What I verified before changing the original menu
+The original implementation passed 18 tests, TypeScript checking, and a production build. In the browser, it displayed Berkshire’s menu and opened a food’s nutrition, ingredients, allergens, and tags.
+Existing functionality
+What implements it
+Hall, date, and meal selection
+Menus stores the selected values and requests the corresponding menu.
+Loading menu information
+http-menu-data-source.ts sends the hall ID, date, and meal to the API.
+Displaying stations and foods
+Menus renders the returned station and food lists.
+Opening food information
+food-details-dialog.tsx requests details using the selected food ID.
+Nutrition and dietary tags
+nutrition-facts.tsx and menu-tags.tsx display the supplied information.
+Loading, failures, retries, and outdated requests
+use-menu-resource.ts manages requests and ignores superseded responses.
+How the revised navigation works
+Address
+What the user sees
+/
+The new landing page with four dining hall cards.
+/menus
+The same location directory when no hall has been selected.
+/menus?hall=worcester
+Worcester’s menu, with all four location blocks available.
+/about
+The existing About page.
+Clicking a location follows this sequence:
+	1	Its card opens a URL containing the hall’s identifier.
+	2	The menu route reads that identifier and initializes the menu.
+	3	The data source requests the selected hall’s menu.
+	4	Clicking a food requests its detailed information.
+Changing the hall, date, or meal also updates the URL. For example:
+/menus?hall=hampshire&date=2026-10-21&meal=dinner
+Refreshing that address preserves the selection.
+What changed in the files
+Paths below are relative to frontend/.
+File
+Responsibility
+app/page.tsx
+Makes the dining hall directory the homepage instead of About.
+menus/landing-page.tsx
+Assembles the landing page: shared header, introduction, four cards, and About link.
+components/menus/dining-hall-cards.tsx
+Provides the reusable location cards and compact selection blocks.
+app/menus/page.tsx
+Reads the URL selection, checks the hall identifier, and opens the appropriate menu.
+menus/menu-page.tsx
+Assembles the selected menu page and keeps its URL synchronized with user selections.
+components/menus/menus.tsx
+Replaces the hall dropdown with visible blocks while retaining date, meal, and menu behavior.
+lib/menus/links.ts
+Builds consistently encoded menu URLs.
+app/about/page.tsx
+Keeps the existing About component available separately.
+components/menus/food-details-dialog.tsx
+Preserves food details and removes reliance on a dialog option absent from the newer shared UI.
+tests/menus/landing.test.tsx
+Adds nine checks covering the homepage, location links, selection blocks, URL handling, and About.
+tests/menus/menus.test.tsx
+Updates the existing interaction tests to click location blocks instead of using a dropdown.
+docs/menu-api.md
+Documents the new navigation while retaining the backend contract.
+The location-card component accepts props, meaning inputs supplied by its parent:
+	•	diningHalls: the locations to display.
+	•	selectedHallId: the currently selected location.
+	•	onSelect: the function to run when a selection block is clicked.
+	•	compact: whether to use the smaller menu-page layout.
+On the landing page, cards are navigation links. Inside the menu browser, they are buttons that change the selected hall.
+UI choices and retained functionality
+The design follows the supplied About page’s maroon #881c1b, white background, Arial typography, spacing, and rounded borders. It reuses the shared header, Button, and Dialog components.
+The menu retains:
+	•	Date entry and previous/next-day controls.
+	•	Meal selection and fallback to an available meal when changing halls.
+	•	Menus grouped by station.
+	•	Food details, nutrition, ingredients, allergens, and dietary/carbon tags.
+	•	Loading, empty-menu, failure, and retry states.
+	•	Protection against displaying an older request’s response after the selection changes.
+The API connection remains configurable through NEXT_PUBLIC_MENU_API_BASE_URL. The actual database integration is still pending; the preview does not represent current dining menus.
+Verification of the revision
+The revised frontend passes:
+	•	27 automated tests
+	•	TypeScript checking
+	•	Linting
+	•	Production build
+Browser checks confirmed card-to-menu navigation, switching locations, date and meal changes, food details, refresh preservation, and the separate About page. I also checked compatibility with the smaller Button and Dialog interfaces shown in PR #9
+What this package contains
+This contains the actual application source: the files you maintain and submit to GitHub. It includes both your menu implementation and the supporting application files required to run it.
+Included part
+Purpose
+Landing page
+Displays Berkshire, Worcester, Franklin, and Hampshire as clickable cards.
+Menu page
+Displays the selected location’s menu, with visible location blocks for switching halls.
+Menu controls
+Select a date and meal and obtain the corresponding menu.
+Food details
+Open a dialog—a panel displayed over the page—with nutrition, ingredients, allergens, and tags.
+Shared components
+Supply the header, buttons, dialogs, and common appearance.
+Application setup
+Supplies Next.js configuration, dependencies, styling setup, and commands to run the website.
+Sample data service
+Returns menu information while the team’s actual backend is unfinished.
+Tests
+Check menu behavior automatically.
+Next.js is the framework—the software providing the application structure and tools—that runs these pages. Dependencies are other software packages that your code requires, such as React and Next.js.
+The package includes package.json and package-lock.json, which describe those dependencies and their versions. Consequently, another developer can download your branch, install its dependencies, and run the same application.
+You do not need to write another frontend application to display this implementation.
+2. What I changed from the earlier preview package
+The earlier preview ZIP already contained a runnable application. I made a few changes to prepare a clearer submission:
+	•	Replaced the placeholder login control with Menus / About navigation.
+	•	Set appropriate application and About-page titles.
+	•	Removed the duplicate close control from the food-details dialog.
+	•	Updated the project instructions and excluded macOS .DS_Store files from Git.
+The dining interface retains the shared maroon theme, button styles, and dialog components.
+The About page remains available at /about. This package includes the supplied About implementation; it does not combine your teammate’s separate authentication work.
+3. What I verified
+I installed the dependencies and checked the application using Node.js 24.19.0.
+Node.js executes JavaScript outside the browser. Here, it runs Next.js and the application’s server—the running program that receives browser requests and returns page content or menu data.
+These checks passed:
+Verification
+Result
+TypeScript checks: inspect whether the code uses its declared data structures consistently
+Passed
+ESLint: inspect source files for configured code-quality problems
+Passed
+Automated menu tests
+27 passed
+Production build: prepare the application’s executable output
+Passed
+Running website inspected in Chrome
+Passed
+In Chrome, I verified:
+	•	The homepage displays the four dining halls.
+	•	Clicking Berkshire opens its menu.
+	•	All four location blocks load their corresponding menus.
+	•	Meal and date changes update the displayed selection and menu.
+	•	Clicking a food opens its details.
+	•	Closing food details returns to the menu.
+	•	About opens successfully, and Menus returns to the homepage.
+The food information is sample data. The application displays that fact. A connection to the team’s database is still pending, but it is not required to demonstrate the frontend at this stage.
