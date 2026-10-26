@@ -1,62 +1,69 @@
-import {Scraper} from "../scraper/scraper.js";
-import {DataNode} from "../scraper/parser.js";
-import {AllLocationParser} from "../scraper/parsers/allLocationParser.js";
-import {supabase} from "./client.js";
+import { DataNode } from "../scraper/parser.js";
+import { AllLocationParser } from "../scraper/parsers/allLocationParser.js";
+import { Scraper } from "../scraper/scraper.js";
+import { supabase } from "./client.js";
 
 import {
-    insertMenuData,
-    insertIngredients,
-    insertAllergies,
-    insertMeals
+  insertAllergies,
+  insertIngredients,
+  insertMealItems,
+  insertMeals,
+  insertMenuData,
 } from "./menuData.js";
 
-export async function populateMenu(){
-    const scraper = new Scraper();
-    const html = await scraper.runScraper("locations-menus/");
-    const parser = new AllLocationParser(html);
-    const allLocation = await parser.getData();
+export async function populateMenu() {
+  const scraper = new Scraper();
+  const html = await scraper.runScraper("locations-menus/");
+  const parser = new AllLocationParser(html);
+  const allLocation = await parser.getData();
 
-    for(const [locationName, locationValue] of allLocation.data){
-        const locationNode = locationValue as DataNode;
+  for (const [locationName, locationValue] of allLocation.data) {
+    const locationNode = locationValue as DataNode;
 
-        const menusNode = locationNode.data.get("Menus") as DataNode;
-        if(menusNode === undefined) continue;
+    const menusNode = locationNode.data.get("Menus") as DataNode;
+    if (menusNode === undefined) continue;
 
+    const { data: location } = await supabase
+      .from("locations")
+      .select("id")
+      .eq("name", locationName)
+      .single();
 
-        const {data : location} = await supabase
-            .from("locations")
-            .select("id")
-            .eq("name",locationName)
-            .single();
-        
-        const locationId = location!.id;
+    const locationId = location!.id;
 
+    for (const [date, dateNode] of menusNode.data) {
+      for (const [mealType, mealNodeValue] of (dateNode as DataNode).data) {
+        const mealNode = mealNodeValue as DataNode;
 
-        for(const [date, dateNode] of menusNode.data){
+        const mealId = await insertMeals(locationId, date, mealType);
 
-            for(const [mealType, mealNodeValue] of (dateNode as DataNode).data){
+        for (const [stationName, stationNodeValue] of mealNode.data) {
+          const stationNode = stationNodeValue as DataNode;
 
-                const mealNode = mealNodeValue as DataNode;
+          const items = [...stationNode.data];
+          const batchSize = 2;
 
-                for(const [stationName, stationNodeValue] of mealNode.data){
+          for (let i = 0; i < items.length; i += batchSize) {
+            const batch = items.slice(i, i + batchSize);
 
-                    const stationNode = stationNodeValue as DataNode;
-                
-                    for(const [itemName, itemNodeValue] of stationNode.data){
+            await Promise.all(
+                batch.map(async ([itemName, itemNodeValue]) => {
+                    const itemNode = itemNodeValue as DataNode;
+                    itemNode.data.set("data-dish-name", itemName);
 
-                        const itemNode = itemNodeValue as DataNode;
+                    const menuData = await insertMenuData(itemNode);
+                    const menuItemId = menuData![0]!.id;
 
-                        itemNode.data.set("data-dish-name", itemName);
+                    await insertMealItems(mealId, menuItemId, stationName),
 
-                        const menuData = await insertMenuData(itemNode)
-                        const menuItemId = menuData![0]!.id;
-
-                        await insertIngredients(itemNode, menuItemId);
-                        await insertAllergies(itemNode, menuItemId);
-                        await insertMeals(locationId, date, mealType, menuItemId, stationName);
-                    }
+                    await insertIngredients(itemNode, menuItemId);
+                    await insertAllergies(itemNode, menuItemId);
                 }
-            }
+              ),
+            );
+          }
         }
+      }
     }
+  }
 }

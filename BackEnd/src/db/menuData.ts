@@ -53,26 +53,26 @@ export function buildNutritionalInfo(itemNode: DataNode) {
     return nutritonalInfo;
 }
 
-export function buildIngredients(itemNode: DataNode):string[] {
+export function buildIngredients(itemNode: DataNode):Set<string> {
     const ingredientNode = itemNode.data.get("data-ingredient-list") as DataNode;
-    const ingredients:string[] = [];
+    const ingredients = new Set<string>();
     for(const[,value] of ingredientNode.data){
         if (value === undefined|| value === "") continue;
 
-        ingredients.push(cleanString(value as string));
+        ingredients.add(cleanString(value as string));
     }
     
     return ingredients;
 }
 
 
-export function buildAllergies(itemNode: DataNode): string[] {
+export function buildAllergies(itemNode: DataNode): Set<string> {
     const allergyNode = itemNode.data.get("data-allergens") as DataNode;
-    const allergies:string[] = [];
+    const allergies = new Set<string>();
     for(const[,value] of allergyNode.data){
         if (value === undefined|| value === "") continue;
 
-        allergies.push(cleanString(value as string));
+        allergies.add(cleanString(value as string));
     }
     return allergies;
 }  
@@ -93,65 +93,77 @@ export async function insertMenuData(itemNode: DataNode){
 export async function insertIngredients(itemNode: DataNode, menuItemId: number) {
     const ingredients= buildIngredients(itemNode);
 
-    for (const ingredient of ingredients) {
-        const { data, error} = await supabase
-            .from("ingredients")
-            .upsert(
-                {name: ingredient},
-                {onConflict: "name"}
-            )
-            .select()
-            .single();
+    if(ingredients.size === 0) return;
 
-        if (error) {
-            console.error("Error inserting ingredient:", error);
-            continue;
-        }
+    const { data, error} = await supabase
+        .from("ingredients")
+        .upsert(
+            [...ingredients].map(name => ({name})),
+            {onConflict: "name"}
+        )
+        .select("id")
 
-        const {error: relationError} = await supabase
-            .from("menu_item_ingredients")
-            .upsert({
-                menu_item_id: menuItemId,
-                ingredient_id: data.id
-            });
-        
-        if(relationError){
-            console.error("Error inserting menu item ingredient relation:", relationError);
-        }
-    }   
+    if (error) {
+        throw error;
+    }
+
+    const relations = data.map(ingredient => ({
+        menu_item_id: menuItemId,
+        ingredient_id: ingredient.id
+    }));
+
+    const {error: relationError} = await supabase
+        .from("menu_item_ingredients")
+        .upsert(
+            relations,
+            {
+                onConflict: "menu_item_id, ingredient_id"
+            }
+        );
+    
+    if(relationError){
+        console.error("Error inserting menu item ingredient relation:", relationError);
+    }
+    
 }
 
 export async function insertAllergies(ItemNode: DataNode, menuItemId: number) {
     const allergies = buildAllergies(ItemNode);
-    for(const allergy of allergies){
-        const {data, error} = await supabase
-            .from("allergens")
-            .upsert(
-                {name: allergy},
-                {onConflict: "name"}
-            )
-            .select()
-            .single();
-        
-        if(error){
-            console.error("Error inserting allergen:", error);
-            continue;
-        }
 
-        const {error: relationError} = await supabase
-            .from("menu_item_allergens")
-            .upsert({
-                menu_item_id: menuItemId,
-                allergen_id: data.id
-            });
+    if(allergies.size === 0) return;
 
-        if(relationError){
-            console.error("Error inserting menu item allergen relation:", relationError);
-        }
+    const {data, error} = await supabase
+        .from("allergens")
+        .upsert(
+            [...allergies].map(name => ({name})),
+            {onConflict: "name"}
+        )
+        .select("id")
+    
+    if(error){
+        throw error;
     }
+    const relations = data.map(allergen => ({
+        menu_item_id: menuItemId,
+        allergen_id: allergen.id
+    }));
+
+    const {error: relationError} = await supabase
+        .from("menu_item_allergens")
+        .upsert(
+            relations,
+            {
+                onConflict: "menu_item_id, allergen_id"
+            }
+        );
+
+    if(relationError){
+        console.error("Error inserting menu item allergen relation:", relationError);
+    }
+    
 }
 
-export async function insertMeals(locationId: number, date: string, mealType: string, menuItemId: number, stationName: string) {
+export async function insertMeals(locationId: number, date: string, mealType: string) {
     const {data, error} = await supabase
         .from("meals")
         .upsert(
@@ -171,12 +183,15 @@ export async function insertMeals(locationId: number, date: string, mealType: st
     if(error){
         console.error("Error inserting meal:", error);
     }
+    return data.id
+}
 
-    const {error: relationError} = await supabase
+export async function insertMealItems(mealId: number, menuItemId: number, stationName: string){
+    const {error} = await supabase
         .from("meal_items")
         .upsert(
             {
-                meal_id: data.id,
+                meal_id: mealId,
                 menu_item_id: menuItemId,
                 station: stationName
             },
@@ -185,8 +200,7 @@ export async function insertMeals(locationId: number, date: string, mealType: st
             }
         )
     
-    if(relationError){
-        console.error("Error inserting meal item relation:", relationError);
+    if(error){
+        console.error("Error inserting meal item relation:", error);
     }
 }
-        
