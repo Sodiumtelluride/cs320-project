@@ -4,8 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "client": "node src/db/client.ts"
+    "client": "node src/db/client.ts",
+    "build": "tsc --build",
+    "start": "node ./dist/index.js",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -19,7 +22,7 @@
     "supabase": "^2.120.0",
     "supertest": "^7.3.1",
     "tsx": "^4.23.15",
-    "typescript": "^5.6.0",
+    "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   },
   "dependencies": {

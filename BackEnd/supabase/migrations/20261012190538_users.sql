@@ -21,4 +21,3 @@ CREATE TABLE IF NOT EXISTS public.allergies (
     allergy_name VARCHAR(100) NOT NULL,
     user_id UUID NOT NULL REFERENCES public.users(user_id)
 );
-
