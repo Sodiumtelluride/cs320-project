@@ -89,7 +89,7 @@ function cleanDietaryTags(cleanDiet: string|null): string[]{
 
   let cleaned: string[] = cleanDiet.split(",").map(tag => tag.trim().toLowerCase());
   cleaned = cleaned.map(tag => tag==="plant based" ? "plant-based" : tag);
-  return cleaned.filter(tag => filter.includes(tag))
+  return [... new Set(cleaned.filter(tag => filter.includes(tag)))]
 
 }
 

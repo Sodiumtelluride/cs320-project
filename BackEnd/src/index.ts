@@ -1,6 +1,7 @@
 import express from "express";
 import usersRouter from "./routes/users.js";
 import searchRouter from "./routes/search.js";
+import menuRouter from "./routes/menus.js";
 import session from "express-session";
 
 // https://www.youtube.com/watch?v=Be7X6QJusJA
@@ -25,6 +26,8 @@ app.use("/api/users", usersRouter);
 
 // All search related requests
 app.use("/api/search", searchRouter);
+
+app.use("/api/menus", menuRouter);
 
 // Example request
 //app.get("/", (req, res) => {});
