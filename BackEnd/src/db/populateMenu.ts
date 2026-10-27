@@ -11,6 +11,16 @@ import {
   insertMenuData,
 } from "./menuData.js";
 
+function cleanMealType(meal_type:string){
+    if(meal_type === "grabngo"){
+        return "grab-n-go";
+    }
+    if(meal_type === "late night"){
+        return "late-night";
+    }
+    return meal_type;
+}
+
 export async function populateMenu() {
   const scraper = new Scraper();
   const html = await scraper.runScraper("locations-menus/");
@@ -35,7 +45,7 @@ export async function populateMenu() {
       for (const [mealType, mealNodeValue] of (dateNode as DataNode).data) {
         const mealNode = mealNodeValue as DataNode;
 
-        const mealId = await insertMeals(locationId, date, mealType);
+        const mealId = await insertMeals(locationId, date, cleanMealType(mealType));
 
         for (const [stationName, stationNodeValue] of mealNode.data) {
           const stationNode = stationNodeValue as DataNode;
@@ -54,7 +64,7 @@ export async function populateMenu() {
                     const menuData = await insertMenuData(itemNode);
                     const menuItemId = menuData![0]!.id;
 
-                    await insertMealItems(mealId, menuItemId, stationName),
+                    await insertMealItems(mealId, menuItemId, stationName);
 
                     await insertIngredients(itemNode, menuItemId);
                     await insertAllergies(itemNode, menuItemId);
