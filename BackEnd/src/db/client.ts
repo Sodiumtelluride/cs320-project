@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express, { type Request, type Response } from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import * as bcrypt from "bcrypt";
 import { createClient } from "@supabase/supabase-js";
 
@@ -48,6 +48,42 @@ interface UserDetails {
   passwordHash: string | null; // see the warning on the GET routes
   favoriteFoods: string[];
   allergies: string[];
+}
+
+interface UpdateUserBody {
+  favoriteFoods?: string[];
+  allergies?: string[];
+}
+interface AuthBody {
+  username: string;
+  password: string;
+}
+
+async function authenticateUser(username: string, password: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("users")
+    .select("passwords(password_hash)")
+    .eq("username", username)
+    .maybeSingle();
+  if (error) {
+    console.error(error);
+    return false;
+  }
+  if (!data?.passwords?.[0]?.password_hash) {
+    return false;
+  }
+  return await bcrypt.compare(password, data.passwords[0].password_hash);
+}
+async function authorizeUser(req: Request, res: Response, next: NextFunction) {
+  const { username, password } = (req.body ?? {}) as Partial<AuthBody>;
+  if (!username || !password) {
+    return res.status(400).json({ error: "Username and password are required" });
+  }
+  const isAuthenticated = await authenticateUser(username, password);
+  if (!isAuthenticated) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+  next();
 }
 
 const USER_SELECT =
@@ -170,6 +206,7 @@ app.post(
  */
 app.get(
   "/api/users",
+  authorizeUser,
   async (_req: Request, res: Response<UserDetails[] | ErrorResponse>) => {
     const { data, error } = await supabase.from("users").select(USER_SELECT);
 
@@ -186,6 +223,7 @@ app.get(
 /** GET /api/users/:id  ->  one user */
 app.get(
   "/api/users/:id",
+  authorizeUser,
   async (req: Request<{ id: string }>, res: Response<UserDetails | ErrorResponse>) => {
     const { id } = req.params;
     if (!UUID_RE.test(id)) {
@@ -211,6 +249,7 @@ app.get(
 );
 app.get(
   "/api/users/username/:username",
+  authorizeUser,
   async (req: Request<{ username: string }>, res: Response<UserDetails | ErrorResponse>) => {
     const { username } = req.params;
 
@@ -231,10 +270,6 @@ app.get(
     return res.json(toUserDetails(data as unknown as UserRow));
   }
 );
-
-const PORT = Number(process.env.PORT) || 3000;
-app.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
-
 /*
 Test:
 curl -X POST http://localhost:3000/api/users \
@@ -244,3 +279,123 @@ curl -X POST http://localhost:3000/api/users \
 curl http://localhost:3000/api/users
 curl http://localhost:3000/api/users/<user-uuid>
 */
+
+// PUT routes
+app.put(
+  "/api/users/:id/favorite-foods",
+  authorizeUser,
+  async (req: Request<{ id: string }, {}, UpdateUserBody>, res: Response<ErrorResponse>) => {
+    const { id } = req.params;
+    const { favoriteFoods } = req.body;
+    if (!UUID_RE.test(id)) {
+      return res.status(400).json({ error: "id must be a valid UUID" });
+    }
+    if (!Array.isArray(favoriteFoods)) {
+      return res.status(400).json({ error: "favoriteFoods must be an array of strings" });
+    }
+    const { data, error } = await supabase.rpc("update_user_details", {
+      p_user_id: id,
+      p_foods: favoriteFoods,
+      p_allergies: [] // Empty array to indicate no change to allergies
+    });
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: "database error" });
+    }
+    return res.status(200).json();
+  }
+);
+app.put(
+  "/api/users/:id/allergies",
+  authorizeUser,
+  async (req: Request<{ id: string }, {}, UpdateUserBody>, res: Response<ErrorResponse>) => {
+    const { id } = req.params;
+    const { allergies } = req.body;
+    if (!UUID_RE.test(id)) {
+      return res.status(400).json({ error: "id must be a valid UUID" });
+    }
+    if (!Array.isArray(allergies)) {
+      return res.status(400).json({ error: "allergies must be an array of strings" });
+    }
+    const { data, error } = await supabase.rpc("update_user_details", {
+      p_user_id: id,
+      p_foods: [], // Empty array to indicate no change to favorite foods
+      p_allergies: allergies
+    });
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: "database error" });
+    }
+    return res.status(200).json();
+  }
+);
+// DELETE routes
+app.delete(
+  "/api/users/:id/favorite-foods",
+  authorizeUser,
+  async (req: Request<{ id: string }, {}, { food: string }>, res: Response<ErrorResponse>) => {
+    const { id } = req.params;
+    const { food } = req.body;
+    if (!UUID_RE.test(id)) {
+      return res.status(400).json({ error: "id must be a valid UUID" });
+    }
+    if (!food || typeof food !== "string") {
+      return res.status(400).json({ error: "food must be a string" });
+    }
+    const { data, error } = await supabase.rpc("delete_user_details", {
+      p_user_id: id,
+      p_food_to_delete: food,
+      p_allergy_to_delete: null
+    });
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: "database error" });
+    }
+    return res.status(200).json();
+  }
+);
+app.delete(
+  "/api/users/:id/allergies",
+  authorizeUser,
+  async (req: Request<{ id: string }, {}, { allergy: string }>, res: Response<ErrorResponse>) => {
+    const { id } = req.params;
+    const { allergy } = req.body;
+    if (!UUID_RE.test(id)) {
+      return res.status(400).json({ error: "id must be a valid UUID" });
+    }
+    if (!allergy || typeof allergy !== "string") {
+      return res.status(400).json({ error: "allergy must be a string" });
+    }
+    const { data, error } = await supabase.rpc("delete_user_details", {
+      p_user_id: id,
+      p_food_to_delete: null,
+      p_allergy_to_delete: allergy
+    });
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: "database error" });
+    }
+    return res.status(200).json();
+  }
+);
+// Add authentication route
+app.post(
+  "/api/authenticate",
+  async (req: Request<{}, {}, AuthBody>, res: Response<{ success: boolean }>) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ success: false });
+    }
+    const isAuthenticated = await authenticateUser(username, password);
+    if (!isAuthenticated) {
+      return res.status(401).json({ success: false });
+    }
+    return res.json({ success: true });
+  }
+);
+
+
+const PORT = Number(process.env.PORT) || 3000;
+if (!process.env.VITEST) {
+  app.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
+}
