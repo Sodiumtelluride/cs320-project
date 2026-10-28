@@ -46,5 +46,3 @@ const { data: allergies, error: allergiesError } = await supabase
   .select();
 
 if (allergiesError) throw allergiesError;
-
-

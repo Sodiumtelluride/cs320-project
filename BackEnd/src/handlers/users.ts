@@ -3,13 +3,19 @@ import type { CreateUserDto } from "../dtos/CreateUser.dto.js";
 import type { CreateUserQueryParams } from "../types/query-params.js";
 import type { User } from "../types/response.js";
 
+/*
+
+----- These may no longer be necessary -----
+
 export function getUsers(request: Request, response: Response) {
     response.send({});
 }
 
 export function getUserById(request: Request, response: Response) {
     response.send({});
-}
+} */
+
+/* ----- Somone else worked on user creation already, slap that code here ----- */
 
 // Requests will need to be type annotated as such:
 export function createUser(request: Request<{}, {}, CreateUserDto, CreateUserQueryParams>, response: Response<User>) {
@@ -34,23 +40,17 @@ export function createUser(request: Request<{}, {}, CreateUserDto, CreateUserQue
     // This is what will be returned to frontend afterwards
     // Obviously do NOT use this example
     // I need to chat with the database team
-    response.status(201).send({
-        id: 1,
-        username: "victor-needs-mental-help",
-        email: "vhenney@umass.edu"
-    });
-}
 
-export function login() {
-
-}
-
-export function logout() {
-
+    // This would be for automatic login
+    // request.session.userId = "1234";
 }
 
 export function editUser() {
     
+}
+
+export function removeUser() {
+
 }
 
 export function addAllergy() {

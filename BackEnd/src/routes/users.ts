@@ -18,6 +18,6 @@ router.post('/create', createUser);
 router.post('/login', login);
 
 // /api/users/logout
-router.post('/login', logout);
+router.post('/logout', logout);
 
 export default router; // Make router visible
