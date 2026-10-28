@@ -1,5 +1,6 @@
 import type { Request, Response } from "express-serve-static-core";
 import type { MenuQueryDto } from "../dtos/MenuQuery.dto.js";
+import { cleanDietaryTags } from "../utils/menuUtils.js";
 import { supabase } from "../db/supabase.js";
 
 type MealResponse = {
@@ -47,7 +48,7 @@ async function getLocation(diningHallId: string){
     
 };
 
-async function getMeals(locationId: number, date:string, meal:string){
+export async function getMeals(locationId: number, date:string, meal:string){
     const {data, error} = await supabase
         .from("meals")
         .select("id, meal_type, date")
@@ -81,20 +82,31 @@ async function getMealItems(mealId: number){
     return data as unknown as MealItemQueryResult[];
 }
 
-function cleanDietaryTags(cleanDiet: string|null): string[]{
-  if(!cleanDiet){
-    return [];
-  }
-  const filter: string[] = ["vegetarian", "local", "halal", "plant-based"]
+export function buildStation(mealItems: MealItemQueryResult[]){
+    const stationMap = new Map<string, MenuStationResponse>();
 
-  let cleaned: string[] = cleanDiet.split(",").map(tag => tag.trim().toLowerCase());
-  cleaned = cleaned.map(tag => tag==="plant based" ? "plant-based" : tag);
-  return [... new Set(cleaned.filter(tag => filter.includes(tag)))]
+    for(const row of mealItems){
+      const item = row.menu_items;
 
+      const stationName = row.station;
+
+      if(!stationMap.has(stationName)){
+        stationMap.set(stationName, {
+          id: stationName,
+          name: stationName,
+          foods: []
+        });
+      }
+
+      stationMap.get(stationName)!.foods.push({
+        id: String(item.id),
+        name: item.name,
+        dietaryTags: cleanDietaryTags(item.clean_diet),
+        carbonRating: item.carbon_list as "A"| "B"| "C"| "D"| "E"| null
+      });
+    }
+    return Array.from(stationMap.values());
 }
-
-
-
 
 export async function getMenu(
     request: Request<{},{},{}, MenuQueryDto>,
@@ -130,35 +142,15 @@ export async function getMenu(
             error: "No meal info found"
         });
     }
+
+    const stations = buildStation(mealItems);
     
-    const stationMap = new Map<string, MenuStationResponse>();
-
-    for(const row of mealItems){
-      const item = row.menu_items;
-
-      const stationName = row.station;
-
-      if(!stationMap.has(stationName)){
-        stationMap.set(stationName, {
-          id: stationName,
-          name: stationName,
-          foods: []
-        });
-      }
-
-      stationMap.get(stationName)!.foods.push({
-        id: String(item.id),
-        name: item.name,
-        dietaryTags: cleanDietaryTags(item.clean_diet),
-        carbonRating: item.carbon_list as "A"| "B"| "C"| "D"| "E"| null
-      });
-    }
 
     return response.status(200).send({
       diningHallId,
       date,
       meal,
-      stations: Array.from(stationMap.values()),
+      stations,
       updatedAt: null,
     });
 
