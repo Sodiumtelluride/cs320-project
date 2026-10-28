@@ -1,16 +1,6 @@
-import "dotenv/config";
 import express, { type Request, type Response } from "express";
 import * as bcrypt from "bcrypt";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("Missing SUPABASE_URL or SUPABASE_KEY in environment");
-}
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { persistSession: false },
-});
+import {supabase} from "./supabase.js"
 
 // npm install express @supabase/supabase-js bcrypt dotenv
 // npm install -D typescript tsx @types/express @types/node @types/bcrypt
