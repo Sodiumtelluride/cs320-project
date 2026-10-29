@@ -19,6 +19,8 @@ export interface MenusProps {
   initialMeal?: MealId;
   onSelectionChange?: (query: MenuQuery) => void;
   className?: string;
+  locationHeading?: string;
+  periodLabel?: string;
 }
 
 function MenuResults({ query, diningHallName, dataSource }: {
@@ -46,7 +48,7 @@ function MenuResults({ query, diningHallName, dataSource }: {
           <h3 className="text-xl font-semibold">{mealName}</h3>
           {menu.updatedAt && <p className="text-xs text-muted-foreground">Updated {formatUpdatedAt(menu.updatedAt)} ET</p>}
         </div>
-        {stations.length === 0 ? <div role="status" className="py-10 text-center"><Utensils aria-hidden="true" className="mx-auto size-6 text-muted-foreground" /><p className="mt-3 font-medium">No menu published for this selection.</p><p className="mt-1 text-sm text-muted-foreground">Choose another date or meal.</p></div> :
+        {stations.length === 0 ? <div role="status" className="py-10 text-center"><Utensils aria-hidden="true" className="mx-auto size-6 text-muted-foreground" /><p className="mt-3 font-medium">{dataSource.mode === "pending" ? "Menu information is not available yet." : "No menu published for this selection."}</p><p className="mt-1 text-sm text-muted-foreground">Choose another date or menu section.</p></div> :
           <div className="divide-y">
             {stations.map((station) => <section key={station.id} className="py-5 first:pt-5 last:pb-0">
               <h4 className="mb-2 text-lg font-semibold">{station.name}</h4>
@@ -58,6 +60,7 @@ function MenuResults({ query, diningHallName, dataSource }: {
                     {food.name}
                   </Button>
                   <MenuTags dietaryTags={food.dietaryTags} carbonRating={food.carbonRating} />
+                  {food.price && <span className="ml-auto pl-3 text-sm tabular-nums text-muted-foreground">{food.price}</span>}
                 </li>)}
               </ul>
             </section>)}
@@ -69,7 +72,7 @@ function MenuResults({ query, diningHallName, dataSource }: {
   );
 }
 
-function MenuBrowser({ diningHalls, dataSource, initialHallId, initialDate, initialMeal = "lunch", onSelectionChange, className }: MenusProps) {
+function MenuBrowser({ diningHalls, dataSource, initialHallId, initialDate, initialMeal = "lunch", onSelectionChange, className, locationHeading = "Choose a dining hall", periodLabel = "Meal" }: MenusProps) {
   const controlsId = useId();
   const [selection, setSelection] = useState(() => ({
     diningHallId: diningHalls.find((hall) => hall.id === initialHallId)?.id ?? diningHalls[0].id,
@@ -99,7 +102,7 @@ function MenuBrowser({ diningHalls, dataSource, initialHallId, initialDate, init
     <div className={cn("space-y-6", className)}>
       {dataSource.mode === "demo" && <div className="rounded-md border bg-muted/50 px-4 py-3 text-sm"><span className="font-semibold">Sample menu</span><span className="text-muted-foreground"> · Development data, not a current dining menu.</span></div>}
       <section aria-labelledby={`${controlsId}-locations`}>
-        <h2 id={`${controlsId}-locations`} className="mb-4 text-lg font-semibold">Choose a dining hall</h2>
+        <h2 id={`${controlsId}-locations`} className="mb-4 text-lg font-semibold">{locationHeading}</h2>
         <DiningHallCards diningHalls={diningHalls} selectedHallId={hall.id} onSelect={selectHall} compact />
       </section>
       <div className="flex flex-wrap items-end justify-between gap-5">
@@ -113,7 +116,7 @@ function MenuBrowser({ diningHalls, dataSource, initialHallId, initialDate, init
           </div>
         </div>
       </div>
-      <div role="group" aria-label="Meal" className="flex flex-wrap gap-2">
+      <div role="group" aria-label={periodLabel} className="flex flex-wrap gap-2">
         {availableMeals.map((entry) => <Button key={entry.id} size="sm" variant={entry.id === query.meal ? "default" : "outline"}
           aria-pressed={entry.id === query.meal} onClick={() => select({ ...query, meal: entry.id })}>{entry.label}</Button>)}
       </div>

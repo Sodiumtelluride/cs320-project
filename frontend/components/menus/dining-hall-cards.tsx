@@ -33,8 +33,9 @@ export function DiningHallCards({ diningHalls, selectedHallId, onSelect, compact
             </span>
             <span className="block">
               <span className={cn("block font-semibold tracking-tight", compact ? "text-base sm:text-lg" : "text-2xl")}>{hall.name}</span>
-              <span className={cn("mt-1 block text-sm", selected ? "text-white/80" : "text-muted-foreground")}>Dining Commons</span>
+              <span className={cn("mt-1 block text-sm", selected ? "text-white/80" : "text-muted-foreground")}>{hall.subtitle ?? "Dining Commons"}</span>
             </span>
+            {!compact && hall.description && <span className="text-sm leading-relaxed text-muted-foreground">{hall.description}</span>}
             {!compact && <span className="flex items-center gap-2 text-sm font-medium text-primary">View menu <span aria-hidden="true">→</span></span>}
           </>
         );
