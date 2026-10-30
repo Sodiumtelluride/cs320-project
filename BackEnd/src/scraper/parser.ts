@@ -22,9 +22,9 @@ export abstract class Parser {
 
 export class DataNode{
     constructor(){
-        this.data = new Map<string, string | DataNode>();
+        this.data = new Map<string, string | DataNode | null>();
     }
-    public data : Map<string,string | DataNode>;
+    public data : Map<string,string | DataNode | null>;
 
     public toString(indent = "") : string{
         var str = "";

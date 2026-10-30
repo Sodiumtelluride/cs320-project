@@ -20,9 +20,10 @@ export class AllLocationParser extends Parser{
         const promise7 = this.attachLocationList(allLocations,"campus-center");
         const promise8 = this.attachLocationList(allLocations,"campus");
         const promise9 = this.attachLocationList(allLocations,"student-businesses");
+        const promise10 = this.attachLocationList(allLocations,"around-campus");
         
 
-        await Promise.all([promise1,promise2,promise3,promise4,promise5,promise6,promise7,promise8,promise9]);
+        await Promise.all([promise1,promise2,promise3,promise4,promise5,promise6,promise7,promise8,promise9,promise10]);
         return allLocations;
     }
 
