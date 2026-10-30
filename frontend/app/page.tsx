@@ -3,7 +3,7 @@ import { DiningLandingPage } from "@/menus/landing-page";
 
 export const metadata: Metadata = {
   title: "Dining menus",
-  description: "Choose Berkshire, Worcester, Franklin, or Hampshire and explore its dining menu.",
+  description: "Explore dining hall menus, Grab ’n Go locations and cafés around the UMass Amherst campus.",
 };
 
 export default function Home() {

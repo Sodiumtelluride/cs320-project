@@ -1,11 +1,22 @@
 import express from "express";
 import usersRouter from "./routes/users.js";
 import searchRouter from "./routes/search.js";
+import menuRouter from "./routes/menus.js";
+import foodRouter from "./routes/foods.js"
 import session from "express-session";
+import cors from "cors";
+
 
 // https://www.youtube.com/watch?v=Be7X6QJusJA
 const app = express();
 
+
+app.use(cors({
+  origin: "http://localhost:3000",
+  credentials: true
+}));
+
+app.use(express.json());
 // Setup session before routes are configured
 // https://www.youtube.com/watch?v=oExWh86IgHA
 app.use(
@@ -25,6 +36,10 @@ app.use("/api/users", usersRouter);
 
 // All search related requests
 app.use("/api/search", searchRouter);
+
+app.use("/api/menus", menuRouter);
+
+app.use("/api/foods", foodRouter);
 
 // Example request
 //app.get("/", (req, res) => {});

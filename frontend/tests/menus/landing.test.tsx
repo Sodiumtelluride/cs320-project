@@ -17,7 +17,7 @@ afterEach(() => {
 describe("Dining landing and navigation", () => {
   it("opens with four linked dining halls rather than the About content", () => {
     render(<Home />);
-    expect(screen.getByRole("heading", { name: "Choose your dining hall" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Choose where to eat" })).toBeTruthy();
     for (const hall of DEMO_DINING_HALLS) {
       expect(screen.getByRole("link", { name: `View ${hall.name} menu` }).getAttribute("href")).toBe(`/menus?hall=${hall.id}`);
     }
@@ -38,7 +38,7 @@ describe("Dining landing and navigation", () => {
 
   it("returns an unknown hall to the list with an explanation", async () => {
     render(await MenusRoute({ searchParams: Promise.resolve({ hall: "unknown" }) }));
-    expect(screen.getByRole("alert").textContent).toContain("That dining hall is not available");
+    expect(screen.getByRole("alert").textContent).toContain("That dining location is not available");
     expect(screen.getAllByRole("link", { name: /^View .+ menu$/ })).toHaveLength(4);
   });
 
