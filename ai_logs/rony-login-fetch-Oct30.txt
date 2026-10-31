@@ -1,0 +1,34 @@
+
+Task: Frontend login credential verification request
+Tool: ChatGPT (model Sol 6.1)/ Codex
+
+User direction:
+Implement and revise the login fetch functionality. Use the full UMass email address as the value of the backend's username field. Keep later login UI and session integration separate.
+
+
+AI-assisted work:
+Created a TypeScript request module, focused authentication tests, a separate Vitest configuration, and integration documentation. The request sends username/password JSON, distinguishes accepted and rejected credentials, handles service and response errors, and supports cancellation. The endpoint is supplied by the caller.
+
+Validation performed by the assistant:
+21 authentication request tests passed, including transmission through the built-in fetch to a temporary local HTTP server. All 36 existing menu tests passed. Type checking and ESLint passed. Checks ran on the supplied main snapshot with Node.js v24.22.1.
+
+Remaining integration:
+The actual backend endpoint must be exposed by the running server. This work does not verify a real Supabase account, establish a session, or connect the existing login button. The existing authentication adapter and backend files are unchanged.
+
+
+The function sends the full email address as username to the configured /api/authenticate endpoint. It returns whether the credentials were accepted and handles errors and cancellation.
+
+All five files are additions. The package preserves the existing application files.
+File	Purpose
+frontend/lib/login-request.ts	Implements requestLogin(). Accepts email/password, submits the request, checks the response, and returns { success: true } or { success: false }.
+frontend/tests/auth/login-request.test.ts	Contains 21 tests covering the request, responses, failures, cancellation, and actual transmission to a temporary local HTTP server.
+frontend/vitest.auth.config.mts	Configures Vitest—the testing program—to run these tests separately from the existing menu tests.
+frontend/docs/login-request.md	Documents the request format, configuration, returned results, and later integration requirements.
+ai_logs/rony-login-fetch-Oct30.txt	Summarizes the AI assistance and validation performed for this work.
+
+
+Validation passed on the supplied project with Node.js v24.22.1:
+- 21 new authentication request tests
+- 36 existing menu tests
+- Type checking
+- ESLint code checks
