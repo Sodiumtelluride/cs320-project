@@ -2,6 +2,20 @@ import {supabase} from "./supabase.js";
 
 import {DataNode} from "../scraper/parser.js";
 
+const ingredientCache = new Map <string, number>();
+const allergyCache = new Map <string, number>();
+
+type Meal = {
+    location_id: number;
+    date: string;
+    meal_type: string;
+};
+
+type FoodInfoJob = {
+    menuItemId: number;
+    itemNode: DataNode;
+}
+
 function getString(itemNode: DataNode, attribute:string) {
     const value = itemNode.data.get(attribute);
     return value;
@@ -49,146 +63,190 @@ export function buildNutritionalInfo(itemNode: DataNode) {
         sugar_dv: getString(itemNode, "data-sugars-dv"),
         protein: getString(itemNode, "data-protein"),
         protein_dv: getString(itemNode, "data-protein-dv"),
+
+        //price: getString(itemNode, "price"),
     }
     return nutritonalInfo;
 }
 
-export function buildIngredients(itemNode: DataNode):string[] {
+async function getIds(table: "ingredients"|"allergens", names: Set<string>, cache: Map<string,number>){
+    const missing = [...names].filter(name => !cache.has(name));
+
+    if(missing.length>0){
+        const {data, error} = await supabase  
+            .from(table)
+            .upsert(
+                missing.map(name => ({name})),
+                {onConflict : "name"}
+            )
+            .select("id,name");
+        if(error){
+            throw error;
+        }
+        for(const row of data ?? []){
+            cache.set(row.name, row.id);
+        }
+    }
+    return cache;
+}
+
+export function buildIngredients(itemNode: DataNode):Set<string> {
     const ingredientNode = itemNode.data.get("data-ingredient-list") as DataNode;
-    const ingredients:string[] = [];
-    if (!ingredientNode) return ingredients;
+    const ingredients = new Set<string>();
+
+    if(!(ingredientNode instanceof DataNode)){
+        return ingredients;
+    }
+
     for(const[,value] of ingredientNode.data){
         if (value === undefined|| value === "") continue;
 
-        ingredients.push(cleanString(value as string));
+        ingredients.add(cleanString(value as string));
     }
     
     return ingredients;
 }
 
 
-export function buildAllergies(itemNode: DataNode): string[] {
+export function buildAllergies(itemNode: DataNode): Set<string> {
     const allergyNode = itemNode.data.get("data-allergens") as DataNode;
-    const allergies:string[] = [];
-    if (!allergyNode) return allergies;
+    const allergies = new Set<string>();
+
+    if(!(allergyNode instanceof DataNode)){
+        return allergies;
+    }
+
     for(const[,value] of allergyNode.data){
         if (value === undefined|| value === "") continue;
 
-        allergies.push(cleanString(value as string));
+        allergies.add(cleanString(value as string));
     }
     return allergies;
 }  
 
-export async function insertMenuData(itemNode: DataNode){
-    const nutritionalInfo = buildNutritionalInfo(itemNode);
+export async function insertMenuData(menuItems: any[]){
+    if(menuItems.length === 0){
+        return [];
+    }
     const { data, error } = await supabase
         .from("menu_items")
-        .insert([nutritionalInfo])
+        .insert(menuItems)
         .select();
     
     if (error) {
-        console.error("Error inserting menu item:", error);
+        throw error;
     }
     return data;
 }
 
-export async function insertIngredients(itemNode: DataNode, menuItemId: number) {
-    const ingredients= buildIngredients(itemNode);
+export async function insertRelations(
+    table: "menu_item_ingredients"|"menu_item_allergens",
+    rows: {menu_item_id: number; [key:string]: number}[],
+    onConflict:string
+){
+    const batchSize = 500;
 
-    for (const ingredient of ingredients) {
-        const { data, error} = await supabase
-            .from("ingredients")
-            .upsert(
-                {name: ingredient},
-                {onConflict: "name"}
-            )
-            .select()
-            .single();
-
-        if (error) {
-            console.error("Error inserting ingredient:", error);
-            continue;
-        }
-
-        const {error: relationError} = await supabase
-            .from("menu_item_ingredients")
-            .upsert({
-                menu_item_id: menuItemId,
-                ingredient_id: data.id
+    for(let i=0; i<rows.length; i+=batchSize){
+        const {error} = await supabase
+            .from(table)
+            .upsert(rows.slice(i,i+batchSize),{
+                onConflict
             });
-        
-        if(relationError){
-            console.error("Error inserting menu item ingredient relation:", relationError);
-        }
-    }   
-}
-
-export async function insertAllergies(ItemNode: DataNode, menuItemId: number) {
-    const allergies = buildAllergies(ItemNode);
-    for(const allergy of allergies){
-        const {data, error} = await supabase
-            .from("allergens")
-            .upsert(
-                {name: allergy},
-                {onConflict: "name"}
-            )
-            .select()
-            .single();
         
         if(error){
-            console.error("Error inserting allergen:", error);
-            continue;
-        }
-
-        const {error: relationError} = await supabase
-            .from("menu_item_allergens")
-            .upsert({
-                menu_item_id: menuItemId,
-                allergen_id: data.id
-            });
-
-        if(relationError){
-            console.error("Error inserting menu item allergen relation:", relationError);
+            throw error;
         }
     }
 }
 
-export async function insertMeals(locationId: number, date: string, mealType: string, menuItemId: number, stationName: string) {
+export async function insertFoodInfoBatch(jobs: FoodInfoJob[]){
+    if(!jobs.length){
+        return;
+    }
+
+    const ingredients = new Set<string>();
+    const allergens = new Set<string>();
+
+    const foods = jobs.map(job =>{
+        const foodIngredients = buildIngredients(job.itemNode);
+        const foodAllergens = buildAllergies(job.itemNode);
+
+        foodIngredients.forEach(name => ingredients.add(name));
+        foodAllergens.forEach(name => allergens.add(name));
+
+        return {...job, foodIngredients, foodAllergens};
+    });
+
+    await Promise.all([
+        getIds("ingredients", ingredients, ingredientCache),
+        getIds("allergens", allergens,allergyCache)
+    ]);
+
+    const ingredientRelations = foods.flatMap(food =>
+        [...food.foodIngredients].map(name => ({
+            menu_item_id: food.menuItemId,
+            ingredient_id: ingredientCache.get(name)!
+        }))
+    );
+
+    const allergyRelations = foods.flatMap(food =>
+        [...food.foodAllergens].map(name => ({
+            menu_item_id: food.menuItemId,
+            allergen_id: allergyCache.get(name)!
+        }))
+    );
+
+    await Promise.all([
+        insertRelations(
+            "menu_item_ingredients",
+            ingredientRelations,
+            "menu_item_id, ingredient_id"
+        ),
+
+        insertRelations(
+            "menu_item_allergens",
+            allergyRelations,
+            "menu_item_id, allergen_id"
+        )
+    ]);
+}
+
+
+export async function insertMeals(meals: Meal[]){
+    if(meals.length === 0){
+        return [];
+    }
+
     const {data, error} = await supabase
         .from("meals")
         .upsert(
-            {
-                location_id: locationId,
-                date: date,
-                meal_type: mealType
-            },
+            meals,
             {
                 onConflict: "location_id, date, meal_type"
-            
             }
         )
-        .select()
-        .single();
+        .select("id, location_id, date, meal_type");
     
     if(error){
-        console.error("Error inserting meal:", error);
+        throw error
     }
+    return data;
+}
 
-    const {error: relationError} = await supabase
+export async function insertMealItems(mealItems: any[]){
+    if(mealItems.length === 0){
+        return;
+    }
+    const {error} = await supabase
         .from("meal_items")
         .upsert(
-            {
-                meal_id: data.id,
-                menu_item_id: menuItemId,
-                station: stationName
-            },
+                mealItems,
             {
                 onConflict: "meal_id, menu_item_id, station"
             }
-        )
+        );
     
-    if(relationError){
-        console.error("Error inserting meal item relation:", relationError);
+    if(error){
+        throw error;
     }
 }
-        
