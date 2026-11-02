@@ -1,6 +1,6 @@
 import {describe, it, expect, afterAll} from "vitest";
 import {DataNode} from "../../scraper/parser.js";
-import {supabase} from "../client.js";
+import {supabase} from "../supabase.js";
 
 import {
     insertMenuData,

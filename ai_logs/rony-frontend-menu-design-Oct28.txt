@@ -1,0 +1,50 @@
+# Menu Location Extension
+
+## Main takeaways 
+* To make other menu tabs integrate with the current UI
+* More extensions that's compatible with the current set-up.
+
+## Resource Usage
+
+Tool and Model(s) Used: ChatGPT 6.1 Sol
+
+## Chat Log
+
+User: Based on my previous work on map and initial draft to extend the menu from just four dining halls to include grab'n go & around campus cafes, revise the code to see if this initial version successfully implement the changes and I still want you to keep all the functionalities the menu components have, but just not showing all the sample data right now. I also attached some screenshots from the original sites as reference.
+
+AI Agent Response:
+
+The ZIP contains 18 frontend additions/replacement files, arranged to fit your existing project. It is an incremental update, not another standalone application.
+
+What now works
+- Home and the menu directory retain the four dining halls and add Grab ’n Go and Around Campus parent cards.
+- Grab ’n Go opens four location cards.
+- Around Campus opens the 16 cafés/stores shown in your screenshots.
+- Selecting an individual location opens its description and menu together.
+- The existing maroon styling, date controls, location selection, food tags, nutrition dialogs, loading indicators, and retry behavior remain available.
+- Café menus support Daily Offerings and optional prices supplied by the backend.
+Location descriptions follow your screenshots and the official dining directories. No location photographs or sample food records were added. UMass Dining
+
+How the new menus work
+
+Opening a location causes the browser to request its menu using the location identifier, selected date, and menu section.
+
+Currently, the included server endpoints answer those requests with an empty food list. The interface therefore displays “Menu information is not available yet,” while the controls continue working.
+
+The existing NEXT_PUBLIC_MENU_API_BASE_URL configuration selects the actual backend service. Once that service returns compatible records, the same components display the foods, prices, tags, and food-detail information. The backend team must confirm or map the documented location identifiers and response fields.
+
+Where the implementation lives
+Files	Purpose
+lib/menus/campus-locations.ts	Defines the categories, 20 new locations, descriptions, identifiers, and available menu sections
+dining-category-cards.tsx and menus/category-page.tsx	Build the parent cards and their location directories
+app/menus/page.tsx and menus/menu-page.tsx	Open the requested directory or location and connect it to the shared menu
+components/menus/menus.tsx	Displays returned menu records, including optional prices
+app/api/menu-pending/	Handles real requests and returns empty menus until a backend is configured
+docs/campus-menus.md	Documents the backend connection and location identifiers
+
+
+Your existing nutrition and food-detail components are reused. The four dining hall menus retain their previous behavior. Shared layout, authentication, global styles, and dependency files are not replaced by this package.
+
+Verification: 36 tests passed, along with type checking, linting, production build, and browser checks covering navigation, empty menus, and rendering populated test responses.
+
+One existing-project issue surfaced during verification: Next.js 16.4.0 has a published security update to 16.4.1. Coordinate that dependency update with your team; this menu extension preserves your dependency files.

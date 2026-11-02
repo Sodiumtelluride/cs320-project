@@ -1,7 +1,7 @@
 import {Scraper} from "../scraper/scraper.js";
 import {DataNode} from "../scraper/parser.js";
 import {AllLocationParser} from "../scraper/parsers/allLocationParser.js";
-import {supabase} from "./client.js";
+import {supabase} from "./supabase.js";
 
 import {
     insertMenuData,
@@ -9,6 +9,16 @@ import {
     insertAllergies,
     insertMeals
 } from "./menuData.js";
+
+function cleanMealType(meal_type:string){
+    if(meal_type === "grabngo"){
+        return "grab-n-go";
+    }
+    if(meal_type === "late night"){
+        return "late-night";
+    }
+    return meal_type;
+}
 
 export async function populateMenu(){
     const scraper = new Scraper();
@@ -53,7 +63,7 @@ export async function populateMenu(){
 
                         await insertIngredients(itemNode, menuItemId);
                         await insertAllergies(itemNode, menuItemId);
-                        await insertMeals(locationId, date, mealType, menuItemId, stationName);
+                        await insertMeals(locationId, date, cleanMealType(mealType), menuItemId, stationName);
                     }
                 }
             }

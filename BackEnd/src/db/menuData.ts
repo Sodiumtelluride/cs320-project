@@ -1,4 +1,4 @@
-import {supabase} from "./client.js";
+import {supabase} from "./supabase.js";
 
 import {DataNode} from "../scraper/parser.js";
 
