@@ -1,4 +1,4 @@
-Frontend login integration — November 2, 2026
+Frontend login integration â€” November 2, 2026
 
 Task: Connect the existing frontend login UI to PR #26's requestLogin helper and PR #25's POST /api/authenticate contract. Preserve array data conventions.
 

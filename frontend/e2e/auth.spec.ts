@@ -56,7 +56,7 @@ test("signup reports mismatched passwords and allows continuing as a guest", asy
   const confirmation = dialog.getByLabel("Confirm password", { exact: true });
   await confirmation.fill("Different-password");
   await dialog.getByRole("button", { name: "Create account", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toHaveText("Your passwords don’t match.");
+  await expect(dialog.getByRole("alert")).toHaveText("Your passwords donâ€™t match.");
   await expect(confirmation).toHaveAttribute("aria-invalid", "true");
   await expect(confirmation).toBeFocused();
   await confirmation.fill("Test-password-123");
