@@ -10,4 +10,4 @@ router.get("/", search);
 /*  ---------- Post requests ---------- */
 // Probably shouldn't post any requests to search
 
-export default router; // Mae router visiblek
+export default router; // Make router visible
