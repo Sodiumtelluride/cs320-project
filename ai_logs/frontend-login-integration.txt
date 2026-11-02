@@ -1,0 +1,8 @@
+Frontend login integration — November 2, 2026
+
+Task: Connect the existing frontend login UI to PR #26's requestLogin helper and PR #25's POST /api/authenticate contract. Preserve array data conventions.
+
+Imported the request helper, its 21 tests, test configuration, and integration documentation from PR #26. Connected authAdapter.signIn to the configurable endpoint. Rejected credentials raise a user-facing error; successful verification updates the existing profile flow. The provider stores verified accounts as an AuthUser array. No database ID is invented because the endpoint returns only a success boolean. Passwords and account data are not persisted. Local logout empties the array; refresh returns to guest mode. Backend sessions remain dependent on PR #24. Sign-up remains outside this change.
+
+Added adapter tests and browser coverage for the request body, successful login, rejection, logout, and refresh. Documented configuration, backend browser-access requirements, and session limitations.
+Validation: typecheck and ESLint passed; 24 authentication tests and 36 menu tests passed. All 10 desktop/mobile authentication browser tests passed using a temporary webpack build configuration because local Turbopack subprocess startup failed. Browser responses were mocked; no live Supabase authentication was exercised.

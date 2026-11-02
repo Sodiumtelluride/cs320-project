@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("guests can navigate to Map, Profile, About, and Menus", async ({ page }) => {
   await page.goto("/");
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
-  for (const [name, heading] of [["Map", "Campus map"], ["Profile", "Profile"], ["About", "Good food. Great company."], ["Menus", "Choose your dining hall"]]) {
+  for (const [name, heading] of [["Map", "Campus map"], ["Profile", "Profile"], ["About", "Good food. Great company."], ["Menus", "Choose where to eat"]]) {
     await navigation.getByRole("link", { name, exact: true }).click();
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
   }
@@ -11,7 +11,8 @@ test("guests can navigate to Map, Profile, About, and Menus", async ({ page }) =
   await expect(page).toHaveURL("/");
 });
 
-test("login validates inputs and keeps the visitor signed out while the backend is unconnected", async ({ page }) => {
+test("login validates inputs and keeps rejected credentials signed out", async ({ page }) => {
+  await page.route("**/api/authenticate", route => route.fulfill({ status: 401, json: { success: false } }));
   await page.goto("/");
   const trigger = page.getByRole("button", { name: "Log in", exact: true });
   await trigger.click();
@@ -28,12 +29,12 @@ test("login validates inputs and keeps the visitor signed out while the backend 
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   await email.fill("student@example.com");
   await submit.click();
-  await expect(dialog.getByRole("alert")).toHaveText("Log in is not available yet. You can still browse as a guest.");
+  await expect(dialog.getByRole("alert")).toHaveText("Invalid email or password. Please try again.");
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(trigger).toBeFocused();
   await page.getByRole("navigation").getByRole("link", { name: "Profile", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "You’re browsing as a guest" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /browsing as a guest/ })).toBeVisible();
 });
 
 test("signup reports mismatched passwords and allows continuing as a guest", async ({ page }) => {
@@ -74,3 +75,30 @@ test("switching login and signup resets the form and Escape restores focus", asy
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(trigger).toBeFocused();
 });
+
+
+test("verified login opens profile, logout clears state, and reload returns to guest", async ({ page }) => {
+  await page.route("**/api/authenticate", async route => {
+    expect(route.request().method()).toBe("POST");
+    expect(route.request().postDataJSON()).toEqual({ username: "student@umass.edu", password: "Test-password-123" });
+    await route.fulfill({ json: { success: true } });
+  });
+  await page.goto("/");
+  async function login() {
+    await page.getByRole("button", { name: "Log in", exact: true }).first().click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Email", { exact: true }).fill("student@umass.edu");
+    await dialog.getByLabel("Password", { exact: true }).fill("Test-password-123");
+    await dialog.getByRole("button", { name: "Log in", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page).toHaveURL("/profile");
+    await expect(page.getByText("student@umass.edu", { exact: true })).toBeVisible();
+  }
+  await login();
+  await page.getByRole("button", { name: "Log out", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /browsing as a guest/ })).toBeVisible();
+  await login();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: /browsing as a guest/ })).toBeVisible();
+});
+

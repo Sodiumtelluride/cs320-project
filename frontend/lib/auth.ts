@@ -1,4 +1,6 @@
-export type AuthUser = { id: string; email: string; name?: string };
+import { requestLogin } from "./login-request";
+
+export type AuthUser = { id?: string; email: string; name?: string };
 export type Credentials = { email: string; password: string };
 export type SignUpInput = Credentials & { name: string };
 export type SignUpResult =
@@ -18,17 +20,22 @@ export interface AuthAdapter {
   signOut(): Promise<void>;
 }
 
-// Replace these methods when connecting the backend. No requests, credential
-// storage, or simulated sign-in are performed by this frontend placeholder.
+// PR #25 verifies credentials only. Account state lives in the provider;
+// no credentials or account data are persisted across page reloads.
 export const authAdapter: AuthAdapter = {
   async getUser() { return null; },
-  async signIn() {
-    throw new Error("Log in is not available yet. You can still browse as a guest.");
+  async signIn(input) {
+    const result = await requestLogin(input, {
+      endpoint: process.env.NEXT_PUBLIC_AUTH_ENDPOINT || "/api/authenticate",
+    });
+    if (!result.success) throw new Error("Invalid email or password. Please try again.");
+    // Verification provides no database ID or profile fields.
+    return { email: input.email.trim() };
   },
   async signUp() {
     throw new Error("Sign up is not available yet. You can still browse as a guest.");
   },
   async signOut() {
-    throw new Error("Log out is not available yet. Please try again later.");
+    // There is no backend session to revoke in PR #25.
   },
 };
