@@ -44,4 +44,5 @@ it("reports a rejected profile edit with a user-safe message", async () => {
  await expect(authAdapter.saveAllergies("user-id", ["Peanuts"])).rejects.toThrow("That entry was rejected. Please check it and try again.");
  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
  await expect(authAdapter.removeFavoriteFood("user-id", "Pizza")).rejects.toThrow("We couldn’t reach your account. Please try again.");
+
 });
