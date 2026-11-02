@@ -3,6 +3,8 @@ import express, { type Request, type Response, type NextFunction } from "express
 import * as bcrypt from "bcrypt";
 import {supabase} from "./supabase.js"
 
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) throw new Error("Missing SUPABASE_URL or SUPABASE_KEY in environment");
+
 // npm install express @supabase/supabase-js bcrypt dotenv
 // npm install -D typescript tsx @types/express @types/node @types/bcrypt
 // ---------- Types ----------
@@ -384,9 +386,3 @@ app.post(
     return res.json({ success: true });
   }
 );
-
-
-const PORT = Number(process.env.PORT) || 3000;
-if (!process.env.VITEST) {
-  app.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
-}

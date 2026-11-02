@@ -1,5 +1,13 @@
 import { test, expect } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  let signedIn = false;
+  await page.route("**/api/auth/me", route => route.fulfill({ json: signedIn ? [{ id: "user-id", email: "student@umass.edu", favoriteFoods: [], allergies: [] }] : [] }));
+  await page.route("**/api/authenticate", route => { signedIn = true; return route.fulfill({ json: { success: true } }); });
+  await page.route("**/api/auth/logout", route => { signedIn = false; return route.fulfill({ json: [] }); });
+  await page.route("**/api/users", route => route.fulfill({ status: 409, json: { error: "username already taken" } }));
+});
+
 test("guests can navigate to Map, Profile, About, and Menus", async ({ page }) => {
   await page.goto("/");
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
@@ -48,13 +56,13 @@ test("signup reports mismatched passwords and allows continuing as a guest", asy
   const confirmation = dialog.getByLabel("Confirm password", { exact: true });
   await confirmation.fill("Different-password");
   await dialog.getByRole("button", { name: "Create account", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toHaveText("Your passwords don’t match.");
+  await expect(dialog.getByRole("alert")).toHaveText("Your passwords donâ€™t match.");
   await expect(confirmation).toHaveAttribute("aria-invalid", "true");
   await expect(confirmation).toBeFocused();
   await confirmation.fill("Test-password-123");
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   await dialog.getByRole("button", { name: "Create account", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toHaveText("Sign up is not available yet. You can still browse as a guest.");
+  await expect(dialog.getByRole("alert")).toHaveText("An account with this email already exists.");
   await dialog.getByRole("button", { name: "Continue as guest" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(trigger).toBeFocused();
@@ -77,8 +85,12 @@ test("switching login and signup resets the form and Escape restores focus", asy
 });
 
 
-test("verified login opens profile, logout clears state, and reload returns to guest", async ({ page }) => {
+test("verified login opens profile, logout clears state, and reload restores session", async ({ page }) => {
+  let signedIn = false;
+  await page.route("**/api/auth/me", route => route.fulfill({ json: signedIn ? [{ id: "user-id", email: "student@umass.edu", favoriteFoods: [], allergies: [] }] : [] }));
+  await page.route("**/api/auth/logout", route => { signedIn = false; return route.fulfill({ json: [] }); });
   await page.route("**/api/authenticate", async route => {
+    signedIn = true;
     expect(route.request().method()).toBe("POST");
     expect(route.request().postDataJSON()).toEqual({ username: "student@umass.edu", password: "Test-password-123" });
     await route.fulfill({ json: { success: true } });
@@ -99,6 +111,5 @@ test("verified login opens profile, logout clears state, and reload returns to g
   await expect(page.getByRole("heading", { name: /browsing as a guest/ })).toBeVisible();
   await login();
   await page.reload();
-  await expect(page.getByRole("heading", { name: /browsing as a guest/ })).toBeVisible();
+  await expect(page.getByText("student@umass.edu", { exact: true })).toBeVisible();
 });
-

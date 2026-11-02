@@ -1,62 +1,40 @@
-import type { Request, Response } from "express-serve-static-core";
-import { supabase } from "../db/client.js";
+import type { Request, Response } from "express";
+import { supabase } from "../db/supabase.js";
 import * as bcrypt from "bcrypt";
 
-export async function login(request: Request, response: Response) {
-    // Make sure email and password match
-    const authStatus = await validateUser(request.body.email, request.body.password);
-
-    if (!authStatus.success) {
-        return response.status(401).json({
-            error: "Invalid login"
-        });
-    }
-
-    // Once validated, set session to user's ID
-    request.session.userId = authStatus.id;
-
-    return response.status(200).json({
-        message: "😎 All logged in champ hell yeah"
-    });
+export async function login(req: Request, res: Response) {
+  const { username, password } = req.body ?? {};
+  if (typeof username !== "string" || typeof password !== "string" || !username.trim() || !password) return res.status(400).json({ success: false });
+  try {
+    const { data, error } = await supabase.from("users").select("user_id, passwords(password_hash)").eq("username", username.trim()).maybeSingle();
+    if (error) return res.status(503).json({ success: false });
+    const hash = data?.passwords?.[0]?.password_hash;
+    if (!hash || !(await bcrypt.compare(password, hash))) return res.status(401).json({ success: false });
+    await new Promise<void>((resolve, reject) => req.session.regenerate(err => err ? reject(err) : resolve()));
+    req.session.userId = data.user_id;
+    await new Promise<void>((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+    return res.json({ success: true });
+  } catch { return res.status(503).json({ success: false }); }
 }
 
-async function validateUser(request: Request, response: Response) {
-    // Check if given correct login information
-    const { data: user, error } = await supabase
-        .from("users")
-        .select("id, username, password_hash")
-        .eq("username", request.body.username)
-        .maybeSingle();
-  
-    if (error) {
-        return { success: false, id: undefined };
-    }
-
-    // If the user doesn't exist, or password doesn't match it's hash fail
-    if (!user || !(await bcrypt.compare(request.body.password, user.password_hash))) {
-        return { success: false, id: undefined };
-    }
-
-    // Return user ID
-    return { success: true, id: user.id };
+export async function currentUser(req: Request, res: Response) {
+  res.set("Cache-Control", "no-store");
+  if (!req.session.userId) return res.json([]);
+  try {
+    const { data, error } = await supabase.from("users")
+      .select("user_id, username, favorite_foods(food_name), allergies(allergy_name)")
+      .eq("user_id", req.session.userId).maybeSingle();
+    if (error) return res.status(503).json({ error: "Unable to load account" });
+    if (!data) return res.status(401).json([]);
+    return res.json([{ id: data.user_id, email: data.username,
+      favoriteFoods: data.favorite_foods.map(f => f.food_name), allergies: data.allergies.map(a => a.allergy_name) }]);
+  } catch { return res.status(503).json({ error: "Unable to load account" }); }
 }
 
-// Just delete session data yup
-export function logout(request: Request, response: Response) {
-    request.session.destroy((err) => {
-        // This shouldn't ever happen
-        // Can happen if session name is changed from 'sessionID' and someone with old cookies tries to log out
-        if (err) {
-            return response.status(500).json({
-                error: "Failed to log out"
-            });
-        }
-
-        // Delete all set cookies
-        response.clearCookie("sessionID");
-
-        return response.status(200).json({
-            message: "Logged out successfully"
-        });
-    });
+export function logout(req: Request, res: Response) {
+  req.session.destroy(err => {
+    if (err) return res.status(503).json({ error: "Unable to log out" });
+    res.clearCookie("sessionID", { path: "/" });
+    return res.json([]);
+  });
 }

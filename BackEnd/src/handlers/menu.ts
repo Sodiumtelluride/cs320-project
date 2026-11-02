@@ -1,5 +1,5 @@
 import type { Request, Response } from "express-serve-static-core";
-import { supabase } from "../db/client.js";
+import { supabase } from "../db/supabase.js";
 
 export async function getMenu(request: Request, response: Response) {
     /*
@@ -16,7 +16,7 @@ export async function getMenu(request: Request, response: Response) {
       .eq("name",request.params.location)
       .single();
     const locationID = location!.id;
-   
+
     // Query for meals
     const { data, error } = await supabase
       .from("meals")
