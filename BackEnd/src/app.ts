@@ -8,6 +8,7 @@ import menuRouter from "./routes/menu.js";
 import menusRouter from "./routes/menus.js";
 import foodsRouter from "./routes/foods.js";
 import searchRouter from "./routes/search.js";
+import snapshotsRouter from "./routes/snapshots.js";
 
 export function createApp(secret: string, store?: session.Store) {
   if (!secret) throw new Error("SESSION_SECRET is required");
@@ -25,6 +26,7 @@ export function createApp(secret: string, store?: session.Store) {
   app.post("/api/users", (req, res, next) => userDatabaseApp(req, res, next));
   app.use("/api/menu", menuRouter);
   app.use("/api/menus", menusRouter);
+  app.use("/api/menu-snapshots", snapshotsRouter);
   app.use("/api/foods", foodsRouter);
   app.use("/api/search", searchRouter);
   return app;

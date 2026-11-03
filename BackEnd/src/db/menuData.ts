@@ -56,6 +56,7 @@ export function buildNutritionalInfo(itemNode: DataNode) {
 export function buildIngredients(itemNode: DataNode):string[] {
     const ingredientNode = itemNode.data.get("data-ingredient-list") as DataNode;
     const ingredients:string[] = [];
+    if (!ingredientNode) return ingredients;
     for(const[,value] of ingredientNode.data){
         if (value === undefined|| value === "") continue;
 
@@ -69,6 +70,7 @@ export function buildIngredients(itemNode: DataNode):string[] {
 export function buildAllergies(itemNode: DataNode): string[] {
     const allergyNode = itemNode.data.get("data-allergens") as DataNode;
     const allergies:string[] = [];
+    if (!allergyNode) return allergies;
     for(const[,value] of allergyNode.data){
         if (value === undefined|| value === "") continue;
 
