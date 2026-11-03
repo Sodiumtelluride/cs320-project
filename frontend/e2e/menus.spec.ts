@@ -11,7 +11,7 @@ async function openMenu(page: Page) {
 
 test("a guest can choose a dining hall from the homepage and return", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Choose your dining hall" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Choose where to eat" })).toBeVisible();
   for (const hall of ["Berkshire", "Worcester", "Franklin", "Hampshire"]) {
     await expect(page.getByRole("link", { name: `View ${hall} menu` })).toBeVisible();
   }
@@ -19,7 +19,7 @@ test("a guest can choose a dining hall from the homepage and return", async ({ p
   await expect(page).toHaveURL(/\/menus\?hall=berkshire/);
   await expect(page.getByRole("heading", { name: "Berkshire Menu", exact: true })).toBeVisible();
   await expect(page.getByText("Development data, not a current dining menu.", { exact: false })).toBeVisible();
-  await page.getByRole("link", { name: "All dining halls" }).click();
+  await page.getByRole("link", { name: "All dining locations" }).click();
   await expect(page).toHaveURL("/");
 });
 
@@ -87,8 +87,8 @@ test("an unpublished meal shows an empty state", async ({ page }) => {
 
 test("a failed menu request can be retried", async ({ page }) => {
   let fail = true;
-  await page.route("**/api/menu-demo/menus?**", async (route) => {
-    if (fail) {
+  await page.route("**/api/menu-demo/menu-snapshots?**", async (route) => {
+    if (fail && route.request().url().includes("location=berkshire") && route.request().url().includes("date=2026-10-19")) {
       fail = false;
       await route.fulfill({ status: 503, json: { error: "Temporary test failure" } });
     } else {
@@ -101,27 +101,27 @@ test("a failed menu request can be retried", async ({ page }) => {
   await expect(page.getByRole("button", { name: bisque, exact: true })).toBeVisible();
 });
 
-test("a failed food-details request can be retried", async ({ page }) => {
+test("food details use the loaded menu snapshot", async ({ page }) => {
   await openMenu(page);
-  let fail = true;
+  let requests = 0;
   await page.route("**/api/menu-demo/foods/**", async (route) => {
-    if (fail) {
-      fail = false;
-      await route.fulfill({ status: 503, json: { error: "Temporary test failure" } });
-    } else {
-      await route.continue();
-    }
+    requests++;
+    await route.continue();
+  });
+  await page.route("**/api/menu-demo/menu-snapshots?**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("location") === "berkshire" && url.searchParams.get("date") === "2026-10-19") requests++;
+    await route.continue();
   });
   await page.getByRole("button", { name: bisque, exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText("Food details could not be loaded.")).toBeVisible();
-  await dialog.getByRole("button", { name: "Try again", exact: true }).click();
   await expect(dialog.getByRole("heading", { name: "Nutrition Facts" })).toBeVisible();
+  expect(requests).toBe(0);
 });
 
 test("an unknown dining hall returns the visitor to the directory", async ({ page }) => {
   await page.goto("/menus?hall=not-a-hall");
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("That dining hall is not available");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("That dining location is not available");
   await expect(page.getByRole("link", { name: "View Berkshire menu" })).toBeVisible();
 });
 
