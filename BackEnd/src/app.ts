@@ -4,9 +4,7 @@ import session from "express-session";
 import authRouter from "./routes/auth.js";
 import { login } from "./handlers/auth.js";
 import { app as userDatabaseApp } from "./db/client.js";
-import menuRouter from "./routes/menu.js";
 import menusRouter from "./routes/menus.js";
-import foodsRouter from "./routes/foods.js";
 import searchRouter from "./routes/search.js";
 import snapshotsRouter from "./routes/snapshots.js";
 
@@ -24,10 +22,8 @@ export function createApp(secret: string, store?: session.Store) {
   // Reuse the existing atomic registration handler. Do not expose legacy
   // user-list routes, which include password hashes and lack ownership checks.
   app.post("/api/users", (req, res, next) => userDatabaseApp(req, res, next));
-  app.use("/api/menu", menuRouter);
   app.use("/api/menus", menusRouter);
   app.use("/api/menu-snapshots", snapshotsRouter);
-  app.use("/api/foods", foodsRouter);
   app.use("/api/search", searchRouter);
   return app;
 }
