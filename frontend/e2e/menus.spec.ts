@@ -1,7 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
+import { formatMenuDate, getCampusDate, shiftMenuDate } from "../lib/menus/date";
 
-// Pin the date so fixtures do not change with the day the tests run.
-const menuUrl = "/menus?hall=berkshire&date=2026-10-19&meal=lunch";
+const today = getCampusDate();
+const tomorrow = shiftMenuDate(today, 1);
+const menuUrl = `/menus?hall=berkshire&date=${today}&meal=lunch`;
 const bisque = "Aged Cheddar & Cauliflower Bisque";
 
 async function openMenu(page: Page) {
@@ -11,7 +13,7 @@ async function openMenu(page: Page) {
 
 test("a guest can choose a dining hall from the homepage and return", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Choose your dining hall" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Choose where to eat" })).toBeVisible();
   for (const hall of ["Berkshire", "Worcester", "Franklin", "Hampshire"]) {
     await expect(page.getByRole("link", { name: `View ${hall} menu` })).toBeVisible();
   }
@@ -19,7 +21,7 @@ test("a guest can choose a dining hall from the homepage and return", async ({ p
   await expect(page).toHaveURL(/\/menus\?hall=berkshire/);
   await expect(page.getByRole("heading", { name: "Berkshire Menu", exact: true })).toBeVisible();
   await expect(page.getByText("Development data, not a current dining menu.", { exact: false })).toBeVisible();
-  await page.getByRole("link", { name: "All dining halls" }).click();
+  await page.getByRole("link", { name: "All dining locations" }).click();
   await expect(page).toHaveURL("/");
 });
 
@@ -29,16 +31,20 @@ test("changing meal, day, and dining hall updates both menu and URL", async ({ p
   await expect(page.getByRole("region", { name: "Dinner menu", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "BBQ Chicken", exact: true })).toHaveCount(0);
   await expect(page).toHaveURL(/meal=dinner/);
-  await page.getByRole("button", { name: "Next day", exact: true }).click();
-  await expect(page.getByLabel("Menu date", { exact: true })).toHaveValue("2026-10-20");
-  await expect(page).toHaveURL(/date=2026-10-20/);
+  await expect(page.getByRole("button", { name: "Previous day", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: /^Menu date:/ }).click();
+  const calendar = page.getByRole("dialog", { name: "Choose a menu date" });
+  await calendar.getByRole("button", { name: formatMenuDate(tomorrow), exact: true }).click();
+  await expect(calendar).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Menu date:/ })).toHaveText(tomorrow);
+  await expect(page).toHaveURL(new RegExp(`date=${tomorrow}`));
   await page.getByRole("button", { name: "Select Worcester" }).click();
   await expect(page.getByRole("heading", { name: "Worcester Menu", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Select Worcester" })).toHaveAttribute("aria-pressed", "true");
   await expect(page).toHaveURL(/hall=worcester/);
   await page.reload();
   await expect(page.getByRole("region", { name: "Dinner menu", exact: true })).toBeVisible();
-  await expect(page.getByLabel("Menu date", { exact: true })).toHaveValue("2026-10-20");
+  await expect(page.getByRole("button", { name: /^Menu date:/ })).toHaveText(tomorrow);
 });
 
 test("switching halls falls back when the selected meal is unavailable", async ({ page }) => {
@@ -57,6 +63,7 @@ test("food details show nutrition and reported allergens and restore focus", asy
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: bisque, exact: true });
   await expect(dialog.getByRole("heading", { name: "Nutrition Facts" })).toBeVisible();
+  await expect(dialog.getByRole("rowheader", { name: /^Added Sugars/ })).toHaveCount(0);
   await expect(dialog.getByText("Milk, Eggs, Wheat, Soy", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Serving size 5 oz", { exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "Close food details" }).click();
@@ -79,7 +86,9 @@ test("missing food information is not presented as allergy-free", async ({ page 
 });
 
 test("an unpublished meal shows an empty state", async ({ page }) => {
-  await page.goto("/menus?hall=berkshire&date=2026-10-25&meal=late-night");
+  const weekday = new Date(`${today}T12:00:00Z`).getUTCDay();
+  const sunday = shiftMenuDate(today, (7 - weekday) % 7);
+  await page.goto(`/menus?hall=berkshire&date=${sunday}&meal=late-night`);
   await expect(page.getByText("No menu published for this selection.")).toBeVisible();
   await page.getByRole("button", { name: "Lunch", exact: true }).click();
   await expect(page.getByRole("button", { name: bisque, exact: true })).toBeVisible();
@@ -87,8 +96,8 @@ test("an unpublished meal shows an empty state", async ({ page }) => {
 
 test("a failed menu request can be retried", async ({ page }) => {
   let fail = true;
-  await page.route("**/api/menu-demo/menus?**", async (route) => {
-    if (fail) {
+  await page.route("**/api/menu-demo/menu-snapshots?**", async (route) => {
+    if (fail && route.request().url().includes("location=berkshire") && route.request().url().includes(`date=${today}`)) {
       fail = false;
       await route.fulfill({ status: 503, json: { error: "Temporary test failure" } });
     } else {
@@ -101,27 +110,45 @@ test("a failed menu request can be retried", async ({ page }) => {
   await expect(page.getByRole("button", { name: bisque, exact: true })).toBeVisible();
 });
 
-test("a failed food-details request can be retried", async ({ page }) => {
-  await openMenu(page);
-  let fail = true;
-  await page.route("**/api/menu-demo/foods/**", async (route) => {
-    if (fail) {
-      fail = false;
-      await route.fulfill({ status: 503, json: { error: "Temporary test failure" } });
-    } else {
-      await route.continue();
+test("one snapshot request serves the menu, meal tabs, and food details", async ({ page }) => {
+  let matchingSnapshots = 0;
+  const separateRequests: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/menu-demo/menu-snapshots" &&
+        url.searchParams.get("location") === "berkshire" &&
+        url.searchParams.get("date") === today) matchingSnapshots++;
+    if (/^\/api\/(?:menu-demo\/|menu-pending\/)?(?:menus|foods)(?:\/|$)/.test(url.pathname)) {
+      separateRequests.push(url.pathname);
     }
   });
+  await openMenu(page);
+  await page.getByRole("button", { name: "Dinner", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Dinner menu", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Lunch", exact: true }).click();
   await page.getByRole("button", { name: bisque, exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText("Food details could not be loaded.")).toBeVisible();
-  await dialog.getByRole("button", { name: "Try again", exact: true }).click();
   await expect(dialog.getByRole("heading", { name: "Nutrition Facts" })).toBeVisible();
+  expect(matchingSnapshots).toBe(1);
+  expect(separateRequests).toEqual([]);
+});
+
+test("campus previews use the same snapshot route without invented menu items", async ({ page }) => {
+  const requested = page.waitForRequest((request) => {
+    const url = new URL(request.url());
+    return url.pathname === "/api/menu-demo/menu-snapshots" && url.searchParams.get("location") === "argo-tea";
+  });
+  await page.goto("/menus?hall=argo-tea");
+  const request = await requested;
+  expect(new URL(request.url()).searchParams.get("date")).toBe(today);
+  await expect(page.getByText("Menu information is not available yet.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "View today’s menu on UMass Dining" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Menu date:/ })).toHaveCount(0);
 });
 
 test("an unknown dining hall returns the visitor to the directory", async ({ page }) => {
   await page.goto("/menus?hall=not-a-hall");
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("That dining hall is not available");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("That dining location is not available");
   await expect(page.getByRole("link", { name: "View Berkshire menu" })).toBeVisible();
 });
 
