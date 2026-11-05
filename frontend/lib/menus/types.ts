@@ -15,6 +15,7 @@ export interface DiningHall {
   id: string;
   name: string;
   meals?: readonly MealId[];
+  menuDateMode?: "today-only";
   subtitle?: string;
   description?: string;
 }

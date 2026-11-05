@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import Home from "@/app/page";
 import About from "@/app/about/page";
@@ -9,8 +9,13 @@ import { DEMO_DINING_HALLS } from "@/lib/menus/dining-halls";
 import { createMockMenuDataSource } from "@/lib/menus/mock-menu-data-source";
 import { menuHref } from "@/lib/menus/links";
 
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-19T16:00:00Z"));
+});
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   window.history.replaceState(null, "", "/");
 });
 
@@ -54,6 +59,11 @@ describe("Dining landing and navigation", () => {
     expect(page.props.initialDate).not.toBe("2026-02-30");
     expect(page.props.initialDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(page.props.initialMeal).toBe("lunch");
+  });
+
+  it.each(["2026-10-18", "2026-11-02"])("uses today's date for an out-of-range menu link (%s)", async (date) => {
+    const page = await MenusRoute({ searchParams: Promise.resolve({ hall: "berkshire", date }) });
+    expect(page.props.initialDate).toBe("2026-10-19");
   });
 
   it("keeps all locations visible as blocks and requests the selected hall", async () => {

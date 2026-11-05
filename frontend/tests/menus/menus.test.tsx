@@ -1,12 +1,19 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Menus } from "@/components/menus/menus";
 import { DEMO_DINING_HALLS } from "@/lib/menus/dining-halls";
 import { createMockMenuDataSource } from "@/lib/menus/mock-menu-data-source";
 import type { MenuDataSource, MenuQuery, MenuResponse } from "@/lib/menus/types";
 
-afterEach(cleanup);
 const initialDate = "2026-10-19";
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-19T16:00:00Z"));
+});
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 function mount(source = createMockMenuDataSource({ latencyMs: 0 })) {
   return render(<Menus diningHalls={DEMO_DINING_HALLS} dataSource={source} initialDate={initialDate} />);
@@ -33,11 +40,11 @@ describe("Menus", () => {
 
   it("falls back to an available meal when the hall changes", async () => {
     mount();
-    fireEvent.click(screen.getByRole("button", { name: "Grab n' Go" }));
-    await screen.findByRole("button", { name: "Vegetable Wrap" });
+    fireEvent.click(screen.getByRole("button", { name: "Late Night" }));
+    await screen.findByRole("region", { name: "Late Night menu" });
     fireEvent.click(screen.getByRole("button", { name: "Select Hampshire" }));
     await screen.findByRole("region", { name: "Lunch menu" });
-    expect(screen.queryByRole("button", { name: "Grab n' Go" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Late Night" })).toBeNull();
   });
 
   it("loads the selected food's details and restores focus when closed", async () => {
@@ -48,6 +55,8 @@ describe("Menus", () => {
     fireEvent.click(trigger);
     const dialog = await screen.findByRole("dialog", { name: "Aged Cheddar & Cauliflower Bisque" });
     await within(dialog).findByRole("heading", { name: "Nutrition Facts" });
+    expect(within(dialog).getByRole("rowheader", { name: /^Total Sugars/ })).toBeTruthy();
+    expect(within(dialog).queryByRole("rowheader", { name: /^Added Sugars/ })).toBeNull();
     expect(getDetails.mock.calls.at(-1)?.[0]).toEqual({ diningHallId: "berkshire", date: initialDate, meal: "lunch", foodId: "cheddar-bisque" });
     expect(within(dialog).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("2");
     expect(within(dialog).getByText(/Milk, Eggs, Wheat, Soy/)).toBeTruthy();
@@ -72,7 +81,9 @@ describe("Menus", () => {
     await screen.findByRole("alert");
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await screen.findByRole("button", { name: "Aged Cheddar & Cauliflower Bisque" });
-    fireEvent.change(screen.getByLabelText("Menu date"), { target: { value: "2026-10-25" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Menu date:/ }));
+    const calendar = screen.getByRole("dialog", { name: "Choose a menu date" });
+    fireEvent.click(within(calendar).getByRole("button", { name: "Sun, October 25, 2026" }));
     fireEvent.click(screen.getByRole("button", { name: "Late Night" }));
     await screen.findByText("No menu published for this selection.");
   });
