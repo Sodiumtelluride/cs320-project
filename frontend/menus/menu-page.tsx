@@ -8,15 +8,12 @@ import { Menus } from "@/components/menus/menus";
 import { DiningCategoryCards } from "@/components/menus/dining-category-cards";
 import { DINING_CATEGORIES, findCampusLocation, getCategoryLocations } from "@/lib/menus/campus-locations";
 import { createHttpMenuDataSource } from "@/lib/menus/http-menu-data-source";
+import { snapshotDataSource } from "@/lib/menus/snapshot-cache";
 import { DEMO_DINING_HALLS } from "@/lib/menus/dining-halls";
 import { categoryHref, menuHref } from "@/lib/menus/links";
 import type { DiningHall, MealId, MenuDataSource, MenuQuery } from "@/lib/menus/types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_MENU_API_BASE_URL?.trim();
-const defaultDataSource = createHttpMenuDataSource({
-  baseUrl: apiBaseUrl || "/api/menu-demo",
-  mode: apiBaseUrl ? "live" : "demo",
-});
 const campusDataSource = createHttpMenuDataSource({
   baseUrl: apiBaseUrl || "/api/menu-pending",
   mode: apiBaseUrl ? "live" : "pending",
@@ -40,7 +37,7 @@ export function MenuPage({ initialHallId, initialDate, initialMeal = "lunch", da
   const location = findCampusLocation(locationId);
   const category = location && DINING_CATEGORIES.find((entry) => entry.id === location.categoryId);
   const locations = diningHalls ?? (location ? getCategoryLocations(location.categoryId) : DEMO_DINING_HALLS);
-  const source = dataSource ?? (location ? campusDataSource : defaultDataSource);
+  const source = dataSource ?? (apiBaseUrl || !location ? snapshotDataSource : campusDataSource);
 
   function handleSelectionChange(query: MenuQuery) {
     setLocationId(query.diningHallId);

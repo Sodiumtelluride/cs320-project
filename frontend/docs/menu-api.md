@@ -1,6 +1,8 @@
 # Menu API contract
 
-Status: proposed frontend contract. The Express menu endpoints and database identifiers have not been confirmed.
+The live UI uses `GET /menu-snapshots?location=<id>&date=<YYYY-MM-DD>` under `NEXT_PUBLIC_MENU_API_BASE_URL`. A response contains `{ location, date, menus, foods, updatedAt }`: `menus` maps meal IDs to stations and their food summaries, while `foods` maps each food ID to its full details. An empty `menus` object means the source did not publish a menu; a missing snapshot is a 404. The browser validates the response and caches it by location and date for five minutes, sharing pending requests. It preloads today for supported locations, followed by nearby future dates; on data-saver and 2G connections it preloads only today. See the backend README for migration and refresh-worker setup.
+
+The sections below describe the retained individual menu and food endpoints and their original frontend contract. They are not used by the live snapshot-backed UI.
 
 The menu UI consumes `MenuDataSource` from `lib/menus/types.ts`. The HTTP implementation accepts a base URL, request credentials, and an optional fetch implementation. The included fixture routes use the same response contract.
 

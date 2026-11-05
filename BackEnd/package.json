@@ -6,6 +6,8 @@
   "scripts": {
     "build": "tsc --build",
     "start": "node ./dist/index.js",
+    "refresh:menus": "node ./dist/refresh.js",
+    "refresh:menus:watch": "node ./dist/refresh.js --watch",
     "test": "vitest",
     "test:run": "vitest run"
   },
