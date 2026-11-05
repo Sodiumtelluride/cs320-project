@@ -182,8 +182,9 @@ export class MenuConstructor {
             return -1; //another page with a link to an off website page
         case "Charles River Campus of UMass Amherst":
             return 10372;
-
-        
+        case "Terrace":
+            return 11150;
+              
         default:
             return -1;
     }

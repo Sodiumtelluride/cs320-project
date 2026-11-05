@@ -33,6 +33,9 @@ function cleanMealType(meal_type:string){
     if(meal_type === "late night"){
         return "late-night";
     }
+    if(meal_type === "daily offerings" || meal_type === "daily offering"){
+        return "daily-offerings";
+    }
     return meal_type;
 }
 
