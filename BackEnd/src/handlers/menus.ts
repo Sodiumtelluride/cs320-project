@@ -25,7 +25,7 @@ type Station = {
 type IngredientList = {ingredients: {name:string} | null}
 type AllergenList = {allergens: {name:string} | null}
 
-type MenuItem = {
+export type MenuItem = {
     id: number;
     name: string;
     clean_diet: string|null;
@@ -61,14 +61,14 @@ type MealItem = {
     menu_items: MenuItem|null;
 }
 
-function validDate(date: string): boolean {
+export function validDate(date: string): boolean {
     return /^\d{4}-\d{2}-\d{2}$/.test(date) &&
         !Number.isNaN(Date.parse(date)) &&
         new Date(date).toISOString().slice(0, 10) === date; 
 }
 
 //Refactored function from Max's snapshot code
-function locationSlug(name: string): string {
+export function locationSlug(name: string): string {
   const slug = name.toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -196,12 +196,12 @@ export function formatFood(item: MenuItem) {
   };
 }
 
-function is_grabNGo(stationName: string){
+export function is_grabNGo(stationName: string){
     return stationName.toLowerCase().includes("breakfast") ? "breakfast" : "lunch";
 }
 
 
-function buildDayMenu(meals: meal[], items: MealItem[], grabngo: boolean){
+export function buildDayMenu(meals: meal[], items: MealItem[], grabngo: boolean){
     const menus: Record<string, Station[]> = {}
     const foods: Record<string, ReturnType<typeof formatFood>> = {};
 
@@ -260,18 +260,14 @@ export async function getMenus(req: Request, res: Response){
 
     const dbLocation = grabngo ? location.replace(/-grab-n-go$/, "") : location;
 
-    console.time("getLocation");
     const locationId = await getLocation(dbLocation);
-    console.timeEnd("getLocation");
     if(locationId === null){
         return res.status(404).json({
             error: "error"
         });
     }
     
-    console.time("getDayData");
     const dayData = await getDayData(locationId, date);
-    console.timeEnd("getDayData");
 
     const meals = grabngo
         ? dayData.meals.filter(meal => meal.meal_type === "grab-n-go")
@@ -279,15 +275,8 @@ export async function getMenus(req: Request, res: Response){
             ? dayData.meals.filter(meal => meal.meal_type !== "grab-n-go")
             : dayData.meals;
 
-    const mealIds = new Set(meals.map(meal => meal.id));
 
-    const items = dayData.items.filter(item =>
-        mealIds.has(item.meal_id)
-    );
-
-    console.time("buildDayMenu");
-    const { menus, foods } = buildDayMenu(meals, items, grabngo);
-    console.timeEnd("buildDayMenu");
+    const { menus, foods } = buildDayMenu(meals, dayData.items, grabngo);
 
     return res.json({
     location,

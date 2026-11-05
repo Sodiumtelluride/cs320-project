@@ -21,12 +21,12 @@ type itemJob = {
     stationName: string;
 }
 
-function cleanDate(date: string){
+export function cleanDate(date: string){
     const cleaned = new Date(date);
     return cleaned.toISOString().split("T")[0]!;
 
 }
-function cleanMealType(meal_type:string){
+export function cleanMealType(meal_type:string){
     if(meal_type === "grabngo"){
         return "grab-n-go";
     }

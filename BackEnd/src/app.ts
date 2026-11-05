@@ -4,9 +4,8 @@ import session from "express-session";
 
 import authRouter from "./routes/auth.js";
 import usersRouter from "./routes/users.js";
-import menuRouter from "./routes/menu.js";
+import menuRouter from "./routes/menus.js";
 import menusRouter from "./routes/menus.js";
-import foodsRouter from "./routes/foods.js";
 import searchRouter from "./routes/search.js";
 import { login } from "./handlers/auth.js";
 
@@ -49,7 +48,6 @@ app.post("/api/authenticate", login);
 /* ---------- Menu, food and search routes ---------- */
 app.use("/api/menu", menuRouter);
 app.use("/api/menus", menusRouter);
-app.use("/api/foods", foodsRouter);
 app.use("/api/search", searchRouter);
 
 // Ensure doesn't run on same port as Front End (Front End runs on 3000)

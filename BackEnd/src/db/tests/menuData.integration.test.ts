@@ -4,14 +4,15 @@ import {supabase} from "../supabase.js";
 
 import {
     insertMenuData,
-    insertIngredients,
-    insertAllergies,
+    insertFoodInfoBatch,
+    buildNutritionalInfo,
     insertMeals,
+    insertMealItems,
 } from "../menuData.js";
 
 describe("Menu Population Database Integration Tests", () =>{
 
-     let menuItemId: number;
+    let menuItemId: number;
 
     let mealId: number;
 
@@ -33,77 +34,153 @@ describe("Menu Population Database Integration Tests", () =>{
         itemNode.data.set("data-ingredient-list", ingredientNode);
         itemNode.data.set("data-allergens", allergyNode);
 
-        const menuData = await insertMenuData(itemNode);
-        expect(menuData).not.toBeNull();
+        const menuRows = [buildNutritionalInfo(itemNode)];
+        const insertedItems = await insertMenuData(menuRows);
+        expect(insertedItems).toHaveLength(1);
 
-        menuItemId = menuData![0]!.id;
+        menuItemId = insertedItems[0]!.id;
         expect(menuItemId).toBeGreaterThan(0);
 
-        await insertIngredients(itemNode, menuItemId);
-        await insertAllergies(itemNode, menuItemId);
+        await insertFoodInfoBatch([
+            {
+                menuItemId,
+                itemNode
+            }
+        ]);
 
-        const { data: location} = await supabase
+        const { data: location, error: locationError} = await supabase
             .from("locations")
             .select("id")
-            .eq("name", "worcester")
+            .eq("id", 2)
             .single();
         
+        if(locationError){
+            throw locationError;
+        }
+
         expect(location).not.toBeNull();
     
+        const insertedMeals = await insertMeals([
+            {
+                location_id: location!.id,
+                date: "2026-11-05",
+                meal_type: "test-lunch"
+            }
+        ]);
 
-        await insertMeals(location!.id, "10-21-2026", "Test Lunch", menuItemId, "Test Station");;
+        expect(insertedMeals).toHaveLength(1);
+        mealId = insertedMeals[0]!.id;
+        expect(mealId).toBeGreaterThan(0);
 
-        const { data: meal } = await supabase
+        await insertMealItems([
+            {
+                meal_id: mealId,
+                menu_item_id: menuItemId,
+                station: "Test Station"
+            }
+        ])
+
+        const { data: meal, error: mealError } = await supabase
             .from("meals")
             .select("*")
-            .eq("location_id", location!.id)
-            .eq("date", "10-21-2026")
-            .eq("meal_type", "Test Lunch")
+            .eq("id", mealId)
             .single();
         
-        
-        expect(meal).not.toBeNull();
-        mealId = meal!.id;
+        if(mealError){
+            throw mealError;
+        }
 
-        expect(mealId).toBeGreaterThan(0);
-        expect(meal!.meal_type).toBe("Test Lunch");
-        expect(meal!.date).toBe("2026-10-21");
+        expect(meal!.meal_type).toBe("test-lunch");
+        expect(meal!.date).toBe("2026-11-05");
 
 
-        const {data: mealItem} = await supabase
+        const {data: mealItem, error: mealItemError} = await supabase
             .from("meal_items")
             .select("*")
-            .eq("meal_id", meal!.id)
+            .eq("meal_id", mealId)
             .eq("menu_item_id", menuItemId)
-            .eq("station", "Test Station")
             .single()
         
-        expect(mealItem).not.toBeNull();
+        if(mealItemError){
+            throw mealItemError;
+        }
+
         expect(mealItem!.station).toBe("Test Station");
 
-    });
+
+        const {data: ingredients, error: ingredientsError} = await supabase
+            .from("menu_item_ingredients")
+            .select("ingredients(name)")
+            .eq("menu_item_id", menuItemId);
+        
+        if(ingredientsError){
+            throw ingredientsError;
+        }
+
+        const ingredientNames = ingredients.map((row: any) => row.ingredients?.name)
+
+        expect(ingredientNames).toHaveLength(3);
+
+        expect(ingredientNames).toEqual(
+            expect.arrayContaining([
+                "Test Salt",
+                "Test Breaded Chicken",
+                "Test BBQ Sauce"
+            ])
+        );
+
+        const {data: allergens, error: allergensError} = await supabase
+        .from("menu_item_allergens")
+        .select("allergens(name)")
+        .eq("menu_item_id", menuItemId);
+
+        if(allergensError){
+            throw allergensError;
+        }
+
+        const allergenNames = allergens.map((row: any) => row.allergens?.name);
+
+        expect(allergenNames).toEqual(["Test Gluten"]);
+    }, 30000);
 
     afterAll(async () => {
         if(mealId){
             await supabase
-                .from("meals")
+                .from("meal_items")
                 .delete()
-                .eq("id", mealId);
+                .eq("meal_id", mealId);
         }
         if(menuItemId){
             await supabase 
+                .from("menu_item_ingredients")
+                .delete()
+                .eq("menu_item_id", menuItemId)
+        
+            await supabase 
+                .from("menu_item_allergens")
+                .delete()
+                .eq("menu_item_id", menuItemId)
+        }
+        if(mealId){
+            await supabase
+                .from("meals")
+                .delete()
+                .eq("id",mealId);
+        }
+        if(menuItemId){
+            await supabase
                 .from("menu_items")
                 .delete()
-                .eq("id", menuItemId)
+                .eq("id", menuItemId);
         }
         await supabase 
             .from("ingredients")
             .delete()
-            .in("name", ["Test Salt", "Test Breaded Chicken", "Test BBQ Sauce"])
+            .in("name", [ "Test Salt", "Test Breaded Chicken", "Test BBQ Sauce"]);
         
         await supabase 
             .from("allergens")
             .delete()
             .eq("name", "Test Gluten")
-    })
-})
+    });
+});
