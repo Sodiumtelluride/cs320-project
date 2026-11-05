@@ -15,9 +15,6 @@ const mocks = vi.hoisted(() => {
     eq: vi.fn(),
     maybeSingle: vi.fn(),
     hash: vi.fn(),
-    update_user_details: vi.fn(),
-    delete_user_details: vi.fn(),
-    compare: vi.fn(),
   };
 });
 
@@ -25,7 +22,7 @@ vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => ({ rpc: mocks.rpc, from: mocks.from })),
 }));
 
-vi.mock("bcrypt", () => ({ hash: mocks.hash, compare: mocks.compare }));
+vi.mock("bcrypt", () => ({ hash: mocks.hash }));
 
 import { app, parseCreateUserBody, toUserDetails } from "./client";
 
@@ -51,32 +48,6 @@ const apiUser = {
   allergies: ["peanuts"],
 };
 
-// Credentials sent in the body of every route protected by authorizeUser
-const creds = { username: "alice", password: "s3cret-pass" };
-
-const USER_SELECT =
-  "user_id, username, passwords(password_hash), favorite_foods(food_name), allergies(allergy_name)";
-
-/**
- * authenticateUser() lives inside client.ts, so it can't be replaced with vi.mock.
- * Instead we feed it fake Supabase + bcrypt results. It is always the FIRST
- * supabase.from("users").select(...) call of a protected request, so a
- * one-shot return value on `select` handles it and leaves the route's own
- * query mocks untouched.
- */
-function mockAuth(passwordMatches = true) {
-  mocks.select.mockReturnValueOnce({
-    eq: () => ({
-      maybeSingle: () =>
-        Promise.resolve({
-          data: { passwords: [{ password_hash: "stored-hash" }] },
-          error: null,
-        }),
-    }),
-  });
-  mocks.compare.mockResolvedValue(passwordMatches);
-}
-
 const validBody = {
   username: "alice",
   password: "s3cret-pass",
@@ -86,13 +57,13 @@ const validBody = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // from("users").select(...).eq(...).maybeSingle()
   mocks.from.mockReturnValue({ select: mocks.select });
   mocks.select.mockReturnValue({ eq: mocks.eq });
   mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle });
   mocks.hash.mockResolvedValue("hashed-password");
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
-
 
 // ---------------------------------------------------------------------------
 // parseCreateUserBody
@@ -301,73 +272,37 @@ describe("POST /api/users", () => {
   });
 });
 
-
-// ---------------------------------------------------------------------------
-// authorizeUser middleware (guards every GET / PUT / DELETE user route)
-// ---------------------------------------------------------------------------
-
-describe("authorizeUser middleware", () => {
-  it("returns 400 when credentials are missing", async () => {
-    const res = await request(app).get("/api/users").send({});
-
-    expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: "Username and password are required" });
-    expect(mocks.from).not.toHaveBeenCalled();
-  });
-
-  it("returns 401 when the password does not match", async () => {
-    mockAuth(false);
-
-    const res = await request(app).get("/api/users").send(creds);
-
-    expect(res.status).toBe(401);
-    expect(res.body).toEqual({ error: "Invalid credentials" });
-  });
-
-  it("returns 401 when the user does not exist", async () => {
-    mocks.select.mockReturnValueOnce({
-      eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }),
-    });
-
-    const res = await request(app).get("/api/users").send(creds);
-
-    expect(res.status).toBe(401);
-    expect(mocks.compare).not.toHaveBeenCalled();
-  });
-});
-
 // ---------------------------------------------------------------------------
 // GET /api/users
 // ---------------------------------------------------------------------------
 
 describe("GET /api/users", () => {
   it("returns all users mapped to the API shape", async () => {
-    mockAuth();
     mocks.select.mockResolvedValue({ data: [dbRow], error: null });
 
-    const res = await request(app).get("/api/users").send(creds);
+    const res = await request(app).get("/api/users");
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual([apiUser]);
     expect(mocks.from).toHaveBeenCalledWith("users");
-    expect(mocks.select).toHaveBeenCalledWith(USER_SELECT);
+    expect(mocks.select).toHaveBeenCalledWith(
+      "user_id, username, passwords(password_hash), favorite_foods(food_name), allergies(allergy_name)"
+    );
   });
 
   it("returns an empty array when there are no users", async () => {
-    mockAuth();
     mocks.select.mockResolvedValue({ data: [], error: null });
 
-    const res = await request(app).get("/api/users").send(creds);
+    const res = await request(app).get("/api/users");
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
   });
 
   it("returns 500 on DB error", async () => {
-    mockAuth();
     mocks.select.mockResolvedValue({ data: null, error: { message: "boom" } });
 
-    const res = await request(app).get("/api/users").send(creds);
+    const res = await request(app).get("/api/users");
 
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ error: "database error" });
@@ -376,10 +311,9 @@ describe("GET /api/users", () => {
   // Documents current behavior. Delete/flip this test when you remove
   // passwordHash from the response (you should; see the WARNING in client.ts).
   it("currently includes passwordHash in the response", async () => {
-    mockAuth();
     mocks.select.mockResolvedValue({ data: [dbRow], error: null });
 
-    const res = await request(app).get("/api/users").send(creds);
+    const res = await request(app).get("/api/users");
 
     expect(res.body[0]).toHaveProperty("passwordHash", "$2b$12$hashed");
   });
@@ -391,10 +325,9 @@ describe("GET /api/users", () => {
 
 describe("GET /api/users/:id", () => {
   it("returns the user when found", async () => {
-    mockAuth();
     mocks.maybeSingle.mockResolvedValue({ data: dbRow, error: null });
 
-    const res = await request(app).get(`/api/users/${VALID_UUID}`).send(creds);
+    const res = await request(app).get(`/api/users/${VALID_UUID}`);
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual(apiUser);
@@ -402,46 +335,37 @@ describe("GET /api/users/:id", () => {
   });
 
   it("accepts an uppercase UUID", async () => {
-    mockAuth();
     mocks.maybeSingle.mockResolvedValue({ data: dbRow, error: null });
 
-    const res = await request(app)
-      .get(`/api/users/${VALID_UUID.toUpperCase()}`)
-      .send(creds);
+    const res = await request(app).get(`/api/users/${VALID_UUID.toUpperCase()}`);
 
     expect(res.status).toBe(200);
   });
 
   it.each(["not-a-uuid", "123", "123e4567-e89b-42d3-a456-42661417400"])(
-    "returns 400 for invalid id %s without querying the user table",
+    "returns 400 for invalid id %s without querying the DB",
     async (id) => {
-      mockAuth();
-
-      const res = await request(app).get(`/api/users/${id}`).send(creds);
+      const res = await request(app).get(`/api/users/${id}`);
 
       expect(res.status).toBe(400);
       expect(res.body).toEqual({ error: "id must be a valid UUID" });
-      // Only the authentication lookup ran; the route's own query never did
-      expect(mocks.select).toHaveBeenCalledTimes(1);
-      expect(mocks.select).not.toHaveBeenCalledWith(USER_SELECT);
+      expect(mocks.from).not.toHaveBeenCalled();
     }
   );
 
   it("returns 404 when the user does not exist", async () => {
-    mockAuth();
     mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
 
-    const res = await request(app).get(`/api/users/${VALID_UUID}`).send(creds);
+    const res = await request(app).get(`/api/users/${VALID_UUID}`);
 
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: "user not found" });
   });
 
   it("returns 500 on DB error", async () => {
-    mockAuth();
     mocks.maybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
 
-    const res = await request(app).get(`/api/users/${VALID_UUID}`).send(creds);
+    const res = await request(app).get(`/api/users/${VALID_UUID}`);
 
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ error: "database error" });
@@ -454,10 +378,9 @@ describe("GET /api/users/:id", () => {
 
 describe("GET /api/users/username/:username", () => {
   it("returns the user when found", async () => {
-    mockAuth();
     mocks.maybeSingle.mockResolvedValue({ data: dbRow, error: null });
 
-    const res = await request(app).get("/api/users/username/alice").send(creds);
+    const res = await request(app).get("/api/users/username/alice");
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual(apiUser);
@@ -465,45 +388,40 @@ describe("GET /api/users/username/:username", () => {
   });
 
   it("decodes URL-encoded usernames", async () => {
-    mockAuth();
     mocks.maybeSingle.mockResolvedValue({ data: dbRow, error: null });
 
-    await request(app).get("/api/users/username/john%20doe").send(creds);
+    await request(app).get("/api/users/username/john%20doe");
 
     expect(mocks.eq).toHaveBeenCalledWith("username", "john doe");
   });
 
   it("returns 404 when the user does not exist", async () => {
-    mockAuth();
     mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
 
-    const res = await request(app).get("/api/users/username/ghost").send(creds);
+    const res = await request(app).get("/api/users/username/ghost");
 
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: "user not found" });
   });
 
   it("returns 500 on DB error", async () => {
-    mockAuth();
     mocks.maybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
 
-    const res = await request(app).get("/api/users/username/alice").send(creds);
+    const res = await request(app).get("/api/users/username/alice");
 
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ error: "database error" });
   });
 
   it("is not swallowed by the /api/users/:id route", async () => {
-    mockAuth();
     mocks.maybeSingle.mockResolvedValue({ data: dbRow, error: null });
 
-    const res = await request(app).get("/api/users/username/alice").send(creds);
+    const res = await request(app).get("/api/users/username/alice");
 
     // If it had hit :id, we'd get a 400 "id must be a valid UUID"
     expect(res.status).not.toBe(400);
   });
 });
-
 
 // ---------------------------------------------------------------------------
 // Module startup
@@ -531,213 +449,5 @@ describe("environment validation", () => {
     await expect(import("./client")).rejects.toThrow(
       "Missing SUPABASE_URL or SUPABASE_KEY in environment"
     );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// PUT routes
-// ---------------------------------------------------------------------------
-
-describe("PUT /api/users/:id/favorite-foods", () => {
-  it("updates favorite foods and returns 200", async () => {
-    mockAuth();
-    mocks.rpc.mockResolvedValue({ data: null, error: null });
-
-    const res = await request(app)
-      .put(`/api/users/${VALID_UUID}/favorite-foods`)
-      .send({ ...creds, favoriteFoods: ["pizza", "burger"] });
-
-    expect(res.status).toBe(200);
-    expect(res.text).toBe(""); // route sends an empty body on success
-    expect(mocks.rpc).toHaveBeenCalledWith("update_user_details", {
-      p_user_id: VALID_UUID,
-      p_foods: ["pizza", "burger"],
-      p_allergies: [],
-    });
-  });
-
-  it("returns 400 for an invalid id", async () => {
-    mockAuth();
-
-    const res = await request(app)
-      .put("/api/users/123/favorite-foods")
-      .send({ ...creds, favoriteFoods: ["pizza"] });
-
-    expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: "id must be a valid UUID" });
-    expect(mocks.rpc).not.toHaveBeenCalled();
-  });
-
-  it("returns 400 for invalid request body", async () => {
-    mockAuth();
-
-    const res = await request(app)
-      .put(`/api/users/${VALID_UUID}/favorite-foods`)
-      .send(creds);
-
-    expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: "favoriteFoods must be an array of strings" });
-  });
-
-  it("returns 500 on DB error", async () => {
-    mockAuth();
-    mocks.rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
-
-    const res = await request(app)
-      .put(`/api/users/${VALID_UUID}/favorite-foods`)
-      .send({ ...creds, favoriteFoods: ["pizza"] });
-
-    expect(res.status).toBe(500);
-    expect(res.body).toEqual({ error: "database error" });
-  });
-
-  it("returns 401 without valid credentials", async () => {
-    mockAuth(false);
-
-    const res = await request(app)
-      .put(`/api/users/${VALID_UUID}/favorite-foods`)
-      .send({ ...creds, favoriteFoods: ["pizza"] });
-
-    expect(res.status).toBe(401);
-    expect(mocks.rpc).not.toHaveBeenCalled();
-  });
-});
-
-describe("PUT /api/users/:id/allergies", () => {
-  it("updates allergies and returns 200", async () => {
-    mockAuth();
-    mocks.rpc.mockResolvedValue({ data: null, error: null });
-
-    const res = await request(app)
-      .put(`/api/users/${VALID_UUID}/allergies`)
-      .send({ ...creds, allergies: ["peanuts", "shellfish"] });
-
-    expect(res.status).toBe(200);
-    expect(res.text).toBe("");
-    expect(mocks.rpc).toHaveBeenCalledWith("update_user_details", {
-      p_user_id: VALID_UUID,
-      p_foods: [],
-      p_allergies: ["peanuts", "shellfish"],
-    });
-  });
-
-  it("returns 400 for an invalid id", async () => {
-    mockAuth();
-
-    const res = await request(app)
-      .put("/api/users/123/allergies")
-      .send({ ...creds, allergies: ["peanuts"] });
-
-    expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: "id must be a valid UUID" });
-  });
-
-  it("returns 400 for invalid request body", async () => {
-    mockAuth();
-
-    const res = await request(app)
-      .put(`/api/users/${VALID_UUID}/allergies`)
-      .send(creds);
-
-    expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: "allergies must be an array of strings" });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// DELETE routes
-// ---------------------------------------------------------------------------
-
-describe("DELETE /api/users/:id/favorite-foods", () => {
-  it("deletes a favorite food and returns 200", async () => {
-    mockAuth();
-    mocks.rpc.mockResolvedValue({ data: null, error: null });
-
-    const res = await request(app)
-      .delete(`/api/users/${VALID_UUID}/favorite-foods`)
-      .send({ ...creds, food: "pizza" });
-
-    expect(res.status).toBe(200);
-    expect(res.text).toBe("");
-    expect(mocks.rpc).toHaveBeenCalledWith("delete_user_details", {
-      p_user_id: VALID_UUID,
-      p_food_to_delete: "pizza",
-      p_allergy_to_delete: null,
-    });
-  });
-
-  it("returns 400 for invalid request body", async () => {
-    mockAuth();
-
-    const res = await request(app)
-      .delete(`/api/users/${VALID_UUID}/favorite-foods`)
-      .send(creds);
-
-    expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: "food must be a string" });
-  });
-});
-
-describe("DELETE /api/users/:id/allergies", () => {
-  it("deletes an allergy and returns 200", async () => {
-    mockAuth();
-    mocks.rpc.mockResolvedValue({ data: null, error: null });
-
-    const res = await request(app)
-      .delete(`/api/users/${VALID_UUID}/allergies`)
-      .send({ ...creds, allergy: "peanuts" });
-
-    expect(res.status).toBe(200);
-    expect(res.text).toBe("");
-    expect(mocks.rpc).toHaveBeenCalledWith("delete_user_details", {
-      p_user_id: VALID_UUID,
-      p_food_to_delete: null,
-      p_allergy_to_delete: "peanuts",
-    });
-  });
-
-  it("returns 400 for invalid request body", async () => {
-    mockAuth();
-
-    const res = await request(app)
-      .delete(`/api/users/${VALID_UUID}/allergies`)
-      .send(creds);
-
-    expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: "allergy must be a string" });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// POST /api/authenticate
-// ---------------------------------------------------------------------------
-
-describe("POST /api/authenticate", () => {
-  it("returns success for valid credentials", async () => {
-    mockAuth(true);
-
-    const res = await request(app).post("/api/authenticate").send(creds);
-
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ success: true });
-    expect(mocks.compare).toHaveBeenCalledWith("s3cret-pass", "stored-hash");
-  });
-
-  it("returns failure for invalid credentials", async () => {
-    mockAuth(false);
-
-    const res = await request(app)
-      .post("/api/authenticate")
-      .send({ username: "alice", password: "wrong-pass" });
-
-    expect(res.status).toBe(401);
-    expect(res.body).toEqual({ success: false });
-  });
-
-  it("returns 400 for missing credentials", async () => {
-    const res = await request(app).post("/api/authenticate").send({});
-
-    expect(res.status).toBe(400);
-    expect(res.body).toEqual({ success: false });
   });
 });
