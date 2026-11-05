@@ -1,158 +1,301 @@
 import type { Request, Response } from "express-serve-static-core";
-import type { MenuQueryDto } from "../dtos/MenuQuery.dto.js";
+import {supabase} from "../db/supabase.js";
 import { cleanDietaryTags } from "../utils/menuUtils.js";
-import { supabase } from "../db/supabase.js";
 
-type MealResponse = {
+type CarbonRating = "A"|"B"|"C"|"D"|"E"|null;
+
+type meal = {
+    id: number;
+    meal_type: string
+};
+
+type FoodSummary = {
     id: string;
     name: string;
     dietaryTags: string[];
-    carbonRating: "A"| "B"| "C"| "D"| "E"| null;
+    carbonRating: CarbonRating;
 };
 
-type MenuStationResponse = {
+type Station = {
     id: string;
     name: string;
-    foods: MealResponse[];
+    foods: FoodSummary[];
 };
 
-type MenuResponse = {
-    diningHallId: string;
-    date: string;
-    meal: string;
-    stations: MenuStationResponse[];
-    updatedAt: string|null;
-};
+type IngredientList = {ingredients: {name:string} | null}
+type AllergenList = {allergens: {name:string} | null}
 
-type MealItemQueryResult = {
-  station : string;
-  menu_items: {
+type MenuItem = {
     id: number;
     name: string;
     clean_diet: string|null;
+    healthfulness: string|null;
     carbon_list: string|null;
-  };
-};
+    serving_size: string;
+    calories: number;
+    calories_from_fat: number;
+    total_fat: string|null;
+    total_fat_dv: string|null;
+    sat_fat: string|null;
+    sat_fat_dv: string|null;
+    trans_fat:  string|null;
+    cholesterol: string|null;
+    cholesterol_dv: string|null;
+    sodium: string|null;
+    sodium_dv: string|null;
+    total_carb: string|null;
+    total_carb_dv: string|null;
+    dietary_fiber: string|null;
+    dietary_fiber_dv: string|null
+    sugar: string|null;
+    sugar_dv: string|null;
+    protein: string|null;
+    protein_dv: string|null;
+    menu_item_ingredients: IngredientList[];
+    menu_item_allergens: AllergenList[];
+}
 
-async function getLocation(diningHallId: string){
-    const {data: location, error: locationError} = await supabase
+type MealItem = {
+    meal_id: number;
+    station: string|null;
+    menu_items: MenuItem|null;
+}
+
+function validDate(date: string): boolean {
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+        !Number.isNaN(Date.parse(date)) &&
+        new Date(date).toISOString().slice(0, 10) === date; 
+}
+
+//Refactored function from Max's snapshot code
+function locationSlug(name: string): string {
+  const slug = name.toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’']/g, "")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return slug === "peets-coffee-and-tea" ? "peets-coffee-tea" : slug;
+}
+
+const locationCache = new Map<string, number>();
+
+async function getLocation(slug: string){
+    const cached = locationCache.get(slug);
+    if(cached !== undefined) return cached;
+
+    const {data, error} = await supabase
         .from("locations")
         .select("id, name")
-        .eq("name", diningHallId.toLowerCase())
-        .maybeSingle();
-    
-    if(locationError){
-        throw locationError;
-    }
-    return location;
-    
-};
-
-export async function getMeals(locationId: number, date:string, meal:string){
-    const {data, error} = await supabase
-        .from("meals")
-        .select("id, meal_type, date")
-        .eq("location_id", locationId)
-        .eq("date", date)
-        .eq("meal_type", meal)
-        .maybeSingle();
     
     if(error){
         throw error;
     }
-    return data;
+    for(const location of data ?? []){
+        locationCache.set(locationSlug(location.name), location.id);
+    }
+    return locationCache.get(slug) ?? null;
+    
 };
 
-async function getMealItems(mealId: number){
-    const {data, error} = await supabase
-        .from("meal_items")
+type MealWithItems = meal & {
+    meal_items: {
+        station: string | null;
+        menu_items: MenuItem | null;
+    }[];
+};
+
+async function getDayData(locationId: number, date: string) {
+    const { data, error } = await supabase
+        .from("meals")
         .select(`
-            station,
-            menu_items(
-                id,
-                name,
-                clean_diet,
-                carbon_list
+            id,
+            meal_type,
+            meal_items (
+                station,
+                menu_items (
+                    *,
+                    menu_item_ingredients (
+                        ingredients (name)
+                    ),
+                    menu_item_allergens (
+                        allergens (name)
+                    )
+                )
             )
         `)
-        .eq("meal_id", mealId);
-    
-    if(error) {throw error};
+        .eq("location_id", locationId)
+        .eq("date", date);
 
-    return data as unknown as MealItemQueryResult[];
+    if (error) throw error;
+
+    const results = (data ?? []) as unknown as MealWithItems[];
+
+    const meals: meal[] = results.map(row => ({
+        id: row.id,
+        meal_type: row.meal_type
+    }));
+
+    const items: MealItem[] = results.flatMap(row =>
+        row.meal_items.map(item => ({
+            meal_id: row.id,
+            station: item.station,
+            menu_items: item.menu_items
+        }))
+    );
+
+    return { meals, items };
 }
 
-export function buildStation(mealItems: MealItemQueryResult[]){
-    const stationMap = new Map<string, MenuStationResponse>();
-
-    for(const row of mealItems){
-      const item = row.menu_items;
-
-      const stationName = row.station;
-
-      if(!stationMap.has(stationName)){
-        stationMap.set(stationName, {
-          id: stationName,
-          name: stationName,
-          foods: []
-        });
-      }
-
-      stationMap.get(stationName)!.foods.push({
-        id: String(item.id),
-        name: item.name,
-        dietaryTags: cleanDietaryTags(item.clean_diet),
-        carbonRating: item.carbon_list as "A"| "B"| "C"| "D"| "E"| null
-      });
-    }
-    return Array.from(stationMap.values());
+//Refactored function from Max's snapshot code
+function number(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const result = parseFloat(String(value));
+  return Number.isFinite(result) && result >= 0 ? result : null;
 }
 
-export async function getMenu(
-    request: Request<{},{},{}, MenuQueryDto>,
-    response: Response<MenuResponse|{ error: string}>
-){
-    const{diningHallId, date, meal} = request.query;
+//Refactored function from Max's snapshot code
+function nutrient(amount: unknown, dailyValue: unknown, unit: "g" | "mg") {
+  const value = number(amount);
+  return value === null ? null : { amount: value, unit, dailyValue: number(dailyValue) };
+}
 
-    if(!diningHallId||!date||!meal){
-        return response.status(404).send({
-            error: "diningHallID, data, or meal not sent"
-        });
+//refactored function from Max's snapshot code
+export function formatFood(item: MenuItem) {
+  const score = number(item.healthfulness);
+  const carbonRating : CarbonRating = item.carbon_list === "A" || item.carbon_list === "B" ||item.carbon_list === "C" || item.carbon_list === "D" ||item.carbon_list === "E" ? item.carbon_list : null;
+  return {
+    id: String(item.id), 
+    name: item.name, 
+    dietaryTags: cleanDietaryTags(item.clean_diet),
+    carbonRating,
+    nutrition: {
+        servingSize: item.serving_size || null, 
+        calories: number(item.calories), 
+        caloriesFromFat: number(item.calories_from_fat),
+        totalFat: nutrient(item.total_fat, item.total_fat_dv, "g"), 
+        saturatedFat: nutrient(item.sat_fat, item.sat_fat_dv, "g"),
+        transFat: nutrient(item.trans_fat, null, "g"), 
+        cholesterol: nutrient(item.cholesterol, item.cholesterol_dv, "mg"),
+        sodium: nutrient(item.sodium, item.sodium_dv, "mg"), 
+        totalCarbohydrate: nutrient(item.total_carb, item.total_carb_dv, "g"),
+        dietaryFiber: nutrient(item.dietary_fiber, item.dietary_fiber_dv, "g"), 
+        totalSugars: nutrient(item.sugar, item.sugar_dv, "g"),
+        addedSugars: null,
+        protein: nutrient(item.protein, item.protein_dv, "g"),
+    },
+    healthfulnessScore: score !== null && score <= 70 ? score / 10 : null,
+    allergens: item.menu_item_allergens?.length ? item.menu_item_allergens.map((r: any) => r.allergens?.name).filter(Boolean) : null,
+    ingredients: item.menu_item_ingredients
+        .map((r: any) => r.ingredients?.name)
+        .filter(Boolean)
+        .join(", ") || null,
+    sourceUrl: null, 
+    updatedAt: null,
+  };
+}
+
+function is_grabNGo(stationName: string){
+    return stationName.toLowerCase().includes("breakfast") ? "breakfast" : "lunch";
+}
+
+
+function buildDayMenu(meals: meal[], items: MealItem[], grabngo: boolean){
+    const menus: Record<string, Station[]> = {}
+    const foods: Record<string, ReturnType<typeof formatFood>> = {};
+
+    for(const meal of meals){
+
+        const mealItems = items.filter(item => item.meal_id === meal.id);
+
+        for(const row of mealItems){
+            if(!row.menu_items){
+                continue;
+            }
+
+            const food = formatFood(row.menu_items);
+            const stationName = row.station ?? "Other";
+
+            const mealType = grabngo ? is_grabNGo(stationName) : meal.meal_type
+
+            if(!menus[mealType]){
+                menus[mealType] = [];
+            }
+
+            let station = menus[mealType].find(station => station.name === stationName);
+
+            if(!station){
+                station = {
+                    id: stationName,
+                    name: stationName,
+                    foods: []
+                }
+
+                menus[mealType].push(station);
+            }
+
+            station.foods.push({
+                id: food.id,
+                name: food.name,
+                dietaryTags: food.dietaryTags,
+                carbonRating: food.carbonRating
+            });
+            foods[food.id] = food;
+        }
+    }
+    return {menus, foods};
+}
+
+export async function getMenus(req: Request, res: Response){
+    const{location, date} = req.query;
+
+    if (typeof location !== "string" || typeof date !== "string" || !validDate(date)){
+        return res.status(400).json({
+            error: "error"
+        })
     }
 
-    const location = await getLocation(diningHallId);
+    const grabngo: boolean = location.endsWith("-grab-n-go");
 
-    if(!location){
-        return response.status(404).send({
-            error: "no location found"
+    const dbLocation = grabngo ? location.replace(/-grab-n-go$/, "") : location;
+
+    console.time("getLocation");
+    const locationId = await getLocation(dbLocation);
+    console.timeEnd("getLocation");
+    if(locationId === null){
+        return res.status(404).json({
+            error: "error"
         });
     }
-    const meals = await getMeals(location.id, date, meal);
-
-    if(!meals){
-        return response.status(404).send({
-            error: "Menu not found"
-        });
-    }
-
-    const mealItems = await getMealItems(meals.id);
-
-    if(mealItems.length===0){
-        return response.status(404).send({
-            error: "No meal info found"
-        });
-    }
-
-    const stations = buildStation(mealItems);
     
+    console.time("getDayData");
+    const dayData = await getDayData(locationId, date);
+    console.timeEnd("getDayData");
 
-    return response.status(200).send({
-      diningHallId,
-      date,
-      meal,
-      stations,
-      updatedAt: null,
-    });
+    const meals = grabngo
+        ? dayData.meals.filter(meal => meal.meal_type === "grab-n-go")
+        : ["berkshire", "worcester", "hampshire", "franklin"].includes(dbLocation)
+            ? dayData.meals.filter(meal => meal.meal_type !== "grab-n-go")
+            : dayData.meals;
+
+    const mealIds = new Set(meals.map(meal => meal.id));
+
+    const items = dayData.items.filter(item =>
+        mealIds.has(item.meal_id)
+    );
+
+    console.time("buildDayMenu");
+    const { menus, foods } = buildDayMenu(meals, items, grabngo);
+    console.timeEnd("buildDayMenu");
+
+    return res.json({
+    location,
+    date,
+    menus,
+    foods,
+    updatedAt: null
+});
 
 }
 

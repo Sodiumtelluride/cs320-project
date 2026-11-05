@@ -25,7 +25,7 @@ function load(location: string, date: string): Promise<Snapshot> {
   const existing = cache.get(key);
   if (existing && existing.expires > Date.now()) return existing.promise;
   const promise = (async () => {
-    const response = await fetch(`${base}/menu-snapshots?${new URLSearchParams({ location, date })}`, { credentials: "include", cache: "no-store", signal: AbortSignal.timeout(15_000) });
+    const response = await fetch(`${base}/menus?${new URLSearchParams({ location, date })}`, { credentials: "include", cache: "no-store", signal: AbortSignal.timeout(15_000) });
     if (!response.ok) throw new Error("The menu service is unavailable. Please try again.");
     const data = await response.json();
     if (data.location !== location || data.date !== date || !data.menus || typeof data.menus !== "object" || !data.foods || typeof data.foods !== "object") throw new Error("Invalid menu snapshot.");
@@ -78,7 +78,7 @@ export async function preloadMenus(today = getCampusDate()) {
   if (preloadDate === today) return;
   preloadDate = today;
   // The current scraper gathers today and the following 13 days, not past dates.
-  for (let offset = 0; offset < 14 && getCampusDate() === today; offset++) {
+  for (let offset = 0; offset < 2 && getCampusDate() === today; offset++) {
     // Today's selections remain available; defer speculative days on limited connections.
     if (offset > 0 && !allowNearbyPreload()) break;
     const date = shiftMenuDate(today, offset);
