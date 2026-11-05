@@ -1,5 +1,7 @@
 {
   // Visit https://aka.ms/tsconfig to read more about this file
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.tests.ts", "src/tests/**"],
   "compilerOptions": {
     // File Layout
     "rootDir": "./src",
@@ -40,5 +42,5 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-  },
+  }
 }
