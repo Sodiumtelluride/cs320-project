@@ -5,7 +5,7 @@ import { parseFoodDetails, parseMenuResponse } from "./validation";
 import type { FoodDetails, MenuDataSource, MenuResponse } from "./types";
 
 type Snapshot = { menus: Record<string, MenuResponse>; foods: Record<string, FoodDetails> };
-const liveBase = process.env.NEXT_PUBLIC_MENU_API_BASE_URL?.trim().replace(/\/+$/, "");
+const liveBase = "/api";
 const base = liveBase || "/api/menu-demo";
 const cache = new Map<string, { promise: Promise<Snapshot>; expires: number }>();
 const ttl = 5 * 60 * 1000;
