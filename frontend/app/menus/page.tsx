@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getCampusDate, isMenuDate } from "@/lib/menus/date";
+import { getCampusDate, getLastMenuDate, resolveMenuDate } from "@/lib/menus/date";
 import { DEMO_DINING_HALLS } from "@/lib/menus/dining-halls";
 import { MEALS } from "@/lib/menus/types";
 import { findCampusLocation, isDiningCategory } from "@/lib/menus/campus-locations";
@@ -34,10 +34,12 @@ export default async function MenusRoute({ searchParams }: MenusRouteProps) {
     return category ? <DiningCategoryPage categoryId={category} notice={notice} /> : <DiningLandingPage notice={notice} />;
   }
 
-  const date = typeof params.date === "string" && isMenuDate(params.date) ? params.date : getCampusDate();
+  const today = getCampusDate();
+  const lastDate = hall.menuDateMode === "today-only" ? today : getLastMenuDate(today);
+  const date = resolveMenuDate(typeof params.date === "string" ? params.date : undefined, today, lastDate);
   const requestedMeal = MEALS.find((entry) => entry.id === params.meal)?.id;
   const defaultMeal = hall.meals?.includes("lunch") ? "lunch" : hall.meals?.includes("daily-offerings") ? "daily-offerings" : hall.meals?.[0] ?? "lunch";
   const meal = requestedMeal && (!hall.meals || hall.meals.includes(requestedMeal)) ? requestedMeal : defaultMeal;
 
-  return <MenuPage key={`${hall.id}:${date}:${meal}`} initialHallId={hall.id} initialDate={date} initialMeal={meal} />;
+  return <MenuPage key={`${hall.id}:${date}:${meal}`} initialHallId={hall.id} initialDate={date} initialCampusDate={today} initialMeal={meal} />;
 }

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import Home from "@/app/page";
 import MenusRoute from "@/app/menus/page";
@@ -11,8 +11,13 @@ import { GET as pendingMenu } from "@/app/api/menu-pending/menus/route";
 import { GET as pendingFood } from "@/app/api/menu-pending/foods/[foodId]/route";
 import type { MenuQuery, MenuResponse } from "@/lib/menus/types";
 
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-27T16:00:00Z"));
+});
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   window.history.replaceState(null, "", "/");
 });
 
@@ -104,6 +109,29 @@ describe("Unpopulated campus menu endpoints", () => {
 });
 
 describe("Campus backend responses", () => {
+  it("shows Argo Tea for today even when switching from a future café menu", async () => {
+    const fetcher = vi.fn<typeof fetch>(async (input) => pendingMenu(new Request(String(input))));
+    const source = createHttpMenuDataSource({ baseUrl: "http://localhost/api/menu-pending", mode: "pending", fetcher });
+    const page = await MenusRoute({ searchParams: Promise.resolve({ hall: "argo-tea", date: "2026-10-30" }) });
+    expect(page.props.initialDate).toBe("2026-10-27");
+
+    render(<MenuPage initialHallId="whitmore-cafe" initialDate="2026-10-30" dataSource={source} />);
+    expect(screen.getByRole("button", { name: /^Menu date:/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Select Argo Tea" }));
+    await screen.findByText("Menu information is not available yet.");
+    expect(screen.getByText("Today’s menu · Tue, October 27, 2026")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Menu date:|^Previous day$|^Next day$/ })).toBeNull();
+    expect(screen.getByRole("link", { name: "View today’s menu on UMass Dining" }).getAttribute("href")).toBe("https://www.umassdining.com/menu/argo-tea-menu");
+    const request = new URL(String(fetcher.mock.calls.at(-1)?.[0]));
+    expect(request.searchParams.get("diningHallId")).toBe("argo-tea");
+    expect(request.searchParams.get("date")).toBe("2026-10-27");
+    expect(new URLSearchParams(window.location.search).get("date")).toBe("2026-10-27");
+
+    fireEvent.click(screen.getByRole("button", { name: "Select Whitmore Café" }));
+    await screen.findByText("Menu information is not available yet.");
+    expect(screen.getByRole("button", { name: /^Menu date:/ })).toBeTruthy();
+  });
+
   it("displays returned café items, prices, tags and details through the HTTP adapter", async () => {
     const fetcher = vi.fn<typeof fetch>(async (input) => {
       const url = new URL(String(input));

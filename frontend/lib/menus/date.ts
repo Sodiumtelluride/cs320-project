@@ -22,6 +22,14 @@ export function shiftMenuDate(value: string, days: number): string {
   return isMenuDate(result) ? result : value;
 }
 
+export function getLastMenuDate(today: string): string {
+  return shiftMenuDate(today, 13);
+}
+
+export function resolveMenuDate(value: string | undefined, today: string, lastDate: string): string {
+  return value && isMenuDate(value) && value >= today && value <= lastDate ? value : today;
+}
+
 export function formatMenuDate(value: string): string {
   return new Intl.DateTimeFormat("en-US", {
     weekday: "short", month: "long", day: "numeric", year: "numeric", timeZone: "UTC",

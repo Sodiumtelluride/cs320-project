@@ -4,18 +4,9 @@ Home and `/menus` retain the four dining halls and add two category cards. `/men
 
 ## Data loading
 
-The existing `NEXT_PUBLIC_MENU_API_BASE_URL` setting selects the backend for both dining halls and campus locations. The service must support the menu contract in [menu-api.md](menu-api.md):
+Dining halls and campus locations use the same [combined menu endpoint](menu-api.md). The location and date identify the requested snapshot. The menu and food details are read from that response, including optional display prices. `daily-offerings` identifies a café menu section.
 
-| Request | Parameters |
-| --- | --- |
-| `GET <base>/menus` | `diningHallId`, `date`, `meal` |
-| `GET <base>/foods/<foodId>` | `diningHallId`, `date`, `meal` |
-
-`diningHallId` is retained for compatibility and identifies any dining location. The identifiers below are frontend configuration; confirm or map them to the backend's identifiers before connecting the service. `daily-offerings` extends the existing meal identifiers for café menus. Availability is configurable per location and should be updated when the backend's supported sections are confirmed.
-
-Without an API base URL, new locations request `/api/menu-pending/menus`. It validates the selection and returns the selected identifiers with `stations: []` and `updatedAt: null`. It supplies no food, price, nutrition or allergen records. The corresponding food-details endpoint returns 404. Existing dining hall demo routes are unchanged. A failed live request remains an error and does not fall back to sample data.
-
-Menu and food-detail responses retain the existing fields. A food may additionally include `price`, a display string such as a formatted amount, or null. Omit it when unavailable. All food rows remain selectable and use the existing food-details dialog, nutrition label and dietary-tag components.
+Without a live API base URL, the sample snapshot endpoint returns an empty menu for campus locations. It supplies no sample foods, prices, nutrition, or allergens for them. A failed live request remains an error. Argo Tea uses today's date and provides a link to its official menu.
 
 ## Locations and menu sections
 

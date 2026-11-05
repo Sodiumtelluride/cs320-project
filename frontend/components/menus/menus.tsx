@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useId, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, LoaderCircle, Utensils } from "lucide-react";
+import { useCallback, useId, useRef, useState, useSyncExternalStore } from "react";
+import { LoaderCircle, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatMenuDate, formatUpdatedAt, getCampusDate, isMenuDate, shiftMenuDate } from "@/lib/menus/date";
+import { formatMenuDate, formatUpdatedAt, getCampusDate, getLastMenuDate, resolveMenuDate } from "@/lib/menus/date";
 import { MEALS, type DiningHall, type MealId, type MenuDataSource, type MenuFood, type MenuQuery } from "@/lib/menus/types";
 import { FoodDetailsDialog } from "./food-details-dialog";
+import { MenuDatePicker } from "./menu-date-picker";
 import { MenuLegend, MenuTags } from "./menu-tags";
 import { useMenuResource } from "./use-menu-resource";
 import { DiningHallCards } from "./dining-hall-cards";
@@ -16,6 +17,7 @@ export interface MenusProps {
   dataSource: MenuDataSource;
   initialHallId?: string;
   initialDate?: string;
+  initialCampusDate?: string;
   initialMeal?: MealId;
   onSelectionChange?: (query: MenuQuery) => void;
   className?: string;
@@ -23,10 +25,11 @@ export interface MenusProps {
   periodLabel?: string;
 }
 
-function MenuResults({ query, diningHallName, dataSource }: {
+function MenuResults({ query, diningHallName, dataSource, todayOnly }: {
   query: MenuQuery;
   diningHallName: string;
   dataSource: MenuDataSource;
+  todayOnly: boolean;
 }) {
   const { diningHallId, date, meal } = query;
   const load = useCallback((signal: AbortSignal) => dataSource.getMenu({ diningHallId, date, meal }, signal), [dataSource, diningHallId, date, meal]);
@@ -48,7 +51,7 @@ function MenuResults({ query, diningHallName, dataSource }: {
           <h3 className="text-xl font-semibold">{mealName}</h3>
           {menu.updatedAt && <p className="text-xs text-muted-foreground">Updated {formatUpdatedAt(menu.updatedAt)} ET</p>}
         </div>
-        {stations.length === 0 ? <div role="status" className="py-10 text-center"><Utensils aria-hidden="true" className="mx-auto size-6 text-muted-foreground" /><p className="mt-3 font-medium">{dataSource.mode === "pending" ? "Menu information is not available yet." : "No menu published for this selection."}</p><p className="mt-1 text-sm text-muted-foreground">Choose another date or menu section.</p></div> :
+        {stations.length === 0 ? <div role="status" className="py-10 text-center"><Utensils aria-hidden="true" className="mx-auto size-6 text-muted-foreground" /><p className="mt-3 font-medium">{dataSource.mode === "pending" ? "Menu information is not available yet." : "No menu published for this selection."}</p>{!todayOnly && <p className="mt-1 text-sm text-muted-foreground">Choose another date or menu section.</p>}</div> :
           <div className="divide-y">
             {stations.map((station) => <section key={station.id} className="py-5 first:pt-5 last:pb-0">
               <h4 className="mb-2 text-lg font-semibold">{station.name}</h4>
@@ -72,17 +75,32 @@ function MenuResults({ query, diningHallName, dataSource }: {
   );
 }
 
-function MenuBrowser({ diningHalls, dataSource, initialHallId, initialDate, initialMeal = "lunch", onSelectionChange, className, locationHeading = "Choose a dining hall", periodLabel = "Meal" }: MenusProps) {
+function subscribeToCampusDate(onChange: () => void) {
+  const timer = window.setInterval(onChange, 60_000);
+  window.addEventListener("focus", onChange);
+  return () => {
+    window.clearInterval(timer);
+    window.removeEventListener("focus", onChange);
+  };
+}
+
+function MenuBrowser({ diningHalls, dataSource, initialHallId, initialDate, initialCampusDate, initialMeal = "lunch", onSelectionChange, className, locationHeading = "Choose a dining hall", periodLabel = "Meal" }: MenusProps) {
   const controlsId = useId();
-  const [selection, setSelection] = useState(() => ({
-    diningHallId: diningHalls.find((hall) => hall.id === initialHallId)?.id ?? diningHalls[0].id,
-    date: initialDate && isMenuDate(initialDate) ? initialDate : getCampusDate(),
-    meal: initialMeal,
-  }));
+  const today = useSyncExternalStore(subscribeToCampusDate, getCampusDate, () => initialCampusDate ?? getCampusDate());
+  const [selection, setSelection] = useState(() => {
+    const hall = diningHalls.find((entry) => entry.id === initialHallId) ?? diningHalls[0];
+    return {
+      diningHallId: hall.id,
+      date: resolveMenuDate(initialDate, today, hall.menuDateMode === "today-only" ? today : getLastMenuDate(today)),
+      meal: initialMeal,
+    };
+  });
   const hall = diningHalls.find((entry) => entry.id === selection.diningHallId) ?? diningHalls[0];
+  const todayOnly = hall.menuDateMode === "today-only";
+  const lastDate = todayOnly ? today : getLastMenuDate(today);
   const availableMeals = MEALS.filter((meal) => !hall.meals || hall.meals.includes(meal.id));
   const meal = availableMeals.find((entry) => entry.id === selection.meal)?.id ?? availableMeals.find((entry) => entry.id === "lunch")?.id ?? availableMeals[0]?.id ?? "lunch";
-  const query: MenuQuery = { diningHallId: hall.id, date: selection.date, meal };
+  const query: MenuQuery = { diningHallId: hall.id, date: resolveMenuDate(selection.date, today, lastDate), meal };
 
   function select(next: MenuQuery) {
     setSelection(next);
@@ -93,10 +111,8 @@ function MenuBrowser({ diningHalls, dataSource, initialHallId, initialDate, init
     const nextHall = diningHalls.find((entry) => entry.id === id)!;
     const options = MEALS.filter((entry) => !nextHall.meals || nextHall.meals.includes(entry.id));
     const nextMeal = options.find((entry) => entry.id === query.meal)?.id ?? options.find((entry) => entry.id === "lunch")?.id ?? options[0]?.id ?? "lunch";
-    select({ ...query, diningHallId: id, meal: nextMeal });
+    select({ ...query, diningHallId: id, date: nextHall.menuDateMode === "today-only" ? today : query.date, meal: nextMeal });
   }
-
-  const fieldClass = "h-10 w-full rounded-md border bg-background px-3 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -106,22 +122,15 @@ function MenuBrowser({ diningHalls, dataSource, initialHallId, initialDate, init
         <DiningHallCards diningHalls={diningHalls} selectedHallId={hall.id} onSelect={selectHall} compact />
       </section>
       <div className="flex flex-wrap items-end justify-between gap-5">
-        <div><h2 className="text-2xl font-semibold tracking-tight">{hall.name} Menu</h2><p className="mt-1 text-sm text-muted-foreground">Menu for {formatMenuDate(query.date)}</p></div>
-        <div className="w-full sm:w-72"><label htmlFor={`${controlsId}-date`} className="mb-2 block text-sm font-medium">Menu date</label>
-          <div className="flex gap-2">
-            <Button variant="outline" className="size-10 shrink-0" aria-label="Previous day" onClick={() => select({ ...query, date: shiftMenuDate(query.date, -1) })}><ChevronLeft aria-hidden="true" /></Button>
-            <input id={`${controlsId}-date`} className={cn(fieldClass, "min-w-0")} type="date" value={query.date}
-              onChange={(event) => { if (isMenuDate(event.target.value)) select({ ...query, date: event.target.value }); }} />
-            <Button variant="outline" className="size-10 shrink-0" aria-label="Next day" onClick={() => select({ ...query, date: shiftMenuDate(query.date, 1) })}><ChevronRight aria-hidden="true" /></Button>
-          </div>
-        </div>
+        <div><h2 className="text-2xl font-semibold tracking-tight">{hall.name} Menu</h2><p className="mt-1 text-sm text-muted-foreground">{todayOnly ? "Today’s menu · " : "Menu for "}{formatMenuDate(query.date)}</p></div>
+        {!todayOnly && <MenuDatePicker date={query.date} today={today} lastDate={lastDate} onChange={(date) => select({ ...query, date })} />}
       </div>
       <div role="group" aria-label={periodLabel} className="flex flex-wrap gap-2">
         {availableMeals.map((entry) => <Button key={entry.id} size="sm" variant={entry.id === query.meal ? "default" : "outline"}
           aria-pressed={entry.id === query.meal} onClick={() => select({ ...query, meal: entry.id })}>{entry.label}</Button>)}
       </div>
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_13rem]">
-        {availableMeals.length ? <MenuResults key={`${query.diningHallId}:${query.date}:${query.meal}`} query={query} diningHallName={hall.name} dataSource={dataSource} /> : <p role="status">No meal periods are configured for this dining hall.</p>}
+        {availableMeals.length ? <MenuResults key={`${query.diningHallId}:${query.date}:${query.meal}`} query={query} diningHallName={hall.name} dataSource={dataSource} todayOnly={todayOnly} /> : <p role="status">No meal periods are configured for this dining hall.</p>}
         <MenuLegend />
       </div>
     </div>
