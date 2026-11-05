@@ -34,3 +34,16 @@ it("rejects missing credentials and fails closed for database errors", async () 
  vi.mocked(supabase.from).mockImplementation(() => { throw new Error("offline"); });
  expect((await request(app).post("/api/authenticate").send({ username: "student@umass.edu", password: "password123" })).status).toBe(503);
 });
+
+it("does not restore the legacy user routes removed by PR #29", async () => {
+ // Regression: integrating an older auth branch could restore reverted routes.
+ // https://github.com/Sodiumtelluride/cs320-project/pull/29
+ const agent = request.agent(createApp("test-secret"));
+ await agent.post("/api/authenticate").send({ username: "student@umass.edu", password: "password123" }).expect(200);
+ await agent.get(`/api/users/${id}`).expect(404);
+ await agent.get("/api/users/username/student%40umass.edu").expect(404);
+ for (const field of ["favorite-foods", "allergies"]) {
+   await agent.put(`/api/users/${id}/${field}`).send({ favoriteFoods: [], allergies: [] }).expect(404);
+   await agent.delete(`/api/users/${id}/${field}`).send({ food: "Pizza", allergy: "Milk" }).expect(404);
+ }
+});
