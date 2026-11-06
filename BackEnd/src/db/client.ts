@@ -222,15 +222,4 @@ app.get(
   }
 );
 
-const PORT = Number(process.env.PORT) || 3000;
-app.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
-
-/*
-Test:
-curl -X POST http://localhost:3000/api/users \
-  -H "Content-Type: application/json" \
-  -d '{"username":"alice","password":"s3cret-pass","favoriteFoods":["pizza","sushi"],"allergies":["peanuts"]}'
-
-curl http://localhost:3000/api/users
-curl http://localhost:3000/api/users/<user-uuid>
-*/
+if (allergiesError) throw allergiesError;

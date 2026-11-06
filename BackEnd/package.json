@@ -4,7 +4,6 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "client": "node src/db/client.ts",
     "build": "tsc --build",
     "start": "node ./dist/index.js",
     "test": "vitest",
@@ -15,11 +14,9 @@
   "license": "ISC",
   "type": "module",
   "devDependencies": {
-    "@types/bcrypt": "^5.0.2",
-    "@types/node": "^26.6.5",
-    "@types/supertest": "^7.2.1",
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.19.0",
+    "@types/node": "^26.6.4",
     "supabase": "^2.120.0",
     "supertest": "^7.3.1",
     "tsx": "^4.23.15",
@@ -30,7 +27,7 @@
     "@supabase/supabase-js": "^2.117.2",
     "bcrypt": "^5.1.1",
     "dotenv": "^18.0.6",
-    "express": "^4.21.0",
+    "express": "^5.3.0",
     "express-session": "^1.19.0",
     "node-html-parser": "^9.0.5"
   },
