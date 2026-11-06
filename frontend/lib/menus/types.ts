@@ -4,6 +4,7 @@ export const MEALS = [
   { id: "dinner", label: "Dinner" },
   { id: "grab-n-go", label: "Grab n' Go" },
   { id: "late-night", label: "Late Night" },
+  { id: "daily-offerings", label: "Daily Offerings" },
 ] as const;
 
 export type MealId = (typeof MEALS)[number]["id"];
@@ -14,6 +15,8 @@ export interface DiningHall {
   id: string;
   name: string;
   meals?: readonly MealId[];
+  subtitle?: string;
+  description?: string;
 }
 
 export interface MenuQuery {
@@ -27,6 +30,7 @@ export interface MenuFood {
   name: string;
   dietaryTags: readonly DietaryTag[];
   carbonRating: CarbonRating | null;
+  price?: string | null;
 }
 
 export interface MenuStation {
@@ -76,7 +80,7 @@ export interface FoodQuery extends MenuQuery {
 }
 
 export interface MenuDataSource {
-  mode: "demo" | "live";
+  mode: "demo" | "live" | "pending";
   getMenu(query: MenuQuery, signal?: AbortSignal): Promise<MenuResponse>;
   getFoodDetails(query: FoodQuery, signal?: AbortSignal): Promise<FoodDetails>;
 }

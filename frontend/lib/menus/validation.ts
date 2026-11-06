@@ -47,6 +47,7 @@ function food(value: unknown): MenuFood {
     id: text(data.id), name: text(data.name),
     dietaryTags: [...new Set(tags)] as DietaryTag[],
     carbonRating: carbon as CarbonRating | null,
+    price: nullableText(data.price),
   };
 }
 

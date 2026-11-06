@@ -1,7 +1,7 @@
 import { parse } from 'node-html-parser';
 import { Parser, DataNode } from '../parser.js';
 import { Scraper} from "../scraper.js";
-import { MenuParser} from "./menuParser.js"
+import {MenuConstructor} from "../MenuConstructor.js";
 
 export class DiningHallParser extends Parser{
     private diningHallNum : number;
@@ -42,10 +42,6 @@ export class DiningHallParser extends Parser{
     }
 
     private async attachMenus(diningHall : DataNode){
-        //const scraper = new Scraper();
-        //const result = await scraper.runScraper("locations-menus/" + this.diningHallName +"/menu");
-        //const menu = await new MenuParser(result).getData();
-        //diningHall.data.set("Menu", menu)
         const menuNode = new DataNode();
         let dayMenu;
         let date = new Date();
@@ -53,92 +49,13 @@ export class DiningHallParser extends Parser{
             dayMenu = new DataNode();
            
             const menuDataURL = "https://www.umassdining.com/foodpro-menu-ajax?tid="+this.diningHallNum+"&date="+(date.getMonth() +1)+"%2F"+date.getDate()+"%2F"+date.getFullYear();
-            menuNode.data.set((date.getMonth() + 1) + "/" + (date.getDate()) + "/" + date.getFullYear(),await this.constructMenuDataFromLink(menuDataURL)); 
+            menuNode.data.set((date.getMonth() + 1) + "/" + (date.getDate()) + "/" + date.getFullYear(),await MenuConstructor.constructMenuDataFromLink(menuDataURL)); 
             date.setDate(date.getDate() + 1);
         }
         diningHall.data.set("Menus", menuNode)
 
     } 
     
-    private async constructMenuDataFromLink(URL : string){
-        const menuNode = new DataNode();
-        const menujson = await (await fetch(URL)).json();
-
-        for (const [time,timeData] of Object.entries(menujson)){
-            const mealTimeData = new DataNode();
-            for(const [station, stationData] of Object.entries(timeData as Record<string,any>)){
-                const htmlData = parse(stationData as string)
-                mealTimeData.data.set(station,await this.stationHtmlParse(htmlData));
-            }
-            menuNode.data.set(time,mealTimeData);
-        }
-
-        return menuNode;
-    }
-
-    private async stationHtmlParse(html :parse.HTMLElement){
-        const stationNode = new DataNode();
-        const meals = html.querySelectorAll('li.lightbox-nutrition');
-        let mealNode;
-        let subbox;
-        let name;
-        for (const meal of meals){
-            mealNode = new DataNode();
-            subbox = meal.querySelector("a");
-            if(subbox === undefined || subbox === null) break;
-            name = subbox.getAttribute("data-dish-name"); 
-            if(name === undefined) break;
-            stationNode.data.set(name ,mealNode);
-            let ingredientsNode;
-            let allergensNode;
-            for(const [attributeName, value] of Object.entries(subbox.attributes)){
-                if(attributeName !== "data-dish-name" && attributeName !== "data-ingredient-list" && attributeName !== "href" && attributeName !== "data-allergens"){
-                    mealNode.data.set(attributeName,value);
-                } else if(attributeName === "data-ingredient-list"){
-                    ingredientsNode = new DataNode();
-                    const ingredients = this.splitIngredient(value);
-                    let i = 0;
-                    for(const ingredient of ingredients){
-                        i++;
-                        ingredientsNode.data.set("ingredient" + i, ingredient);
-                    }
-                    mealNode.data.set(attributeName,ingredientsNode);
-                } else if(attributeName === "data-allergens"){
-                    allergensNode = new DataNode();
-                    const allergens = this.splitIngredient(value);
-                    let i = 0;
-                    for(const allergen of allergens){
-                        i++;
-                        allergensNode.data.set("allergen" + i, allergen);
-                    }
-                    mealNode.data.set(attributeName,allergensNode);
-                }
-                
-            }
-
-
-        }
-        return stationNode;
-    }
-
-    private splitIngredient(originalSTR : string | undefined) : string[] {
-        const returnArr = [] as string[];
-        if(originalSTR == undefined) return returnArr;
-        var tempSTR = "";
-        var insideParenth = false;
-        for(const char of originalSTR){
-            tempSTR += char;
-            if(char == "(") insideParenth = true;
-            else if(char == ")") insideParenth = false;
-            else if(!insideParenth && char == ",") {
-                returnArr.push(tempSTR);
-                tempSTR = "";
-            }
-        }
-        returnArr.push(tempSTR);
-        return returnArr;
-    }
-
     private async attachContentText(diningHall : DataNode){
         const textContent = new DataNode();
         const contentText = this.root.getElementById("content_text");
