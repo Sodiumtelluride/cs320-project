@@ -46,16 +46,26 @@ const dbRow = {
 const apiUser = {
   userId: VALID_UUID,
   username: "alice",
-  passwordHash: "$2b$12$hashed",
   favoriteFoods: ["pizza", "sushi"],
   allergies: ["peanuts"],
+};
+
+// A second, valid user used to test cross-user (ownership) access
+const OTHER_UUID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeffff0000";
+
+const otherDbRow = {
+  user_id: OTHER_UUID,
+  username: "bob",
+  passwords: [{ password_hash: "$2b$12$otherhash" }],
+  favorite_foods: [{ food_name: "tacos" }],
+  allergies: [],
 };
 
 // Credentials sent in the body of every route protected by authorizeUser
 const creds = { username: "alice", password: "s3cret-pass" };
 
 const USER_SELECT =
-  "user_id, username, passwords(password_hash), favorite_foods(food_name), allergies(allergy_name)";
+  "user_id, username, favorite_foods(food_name), allergies(allergy_name)";
 
 /**
  * authenticateUser() lives inside client.ts, so it can't be replaced with vi.mock.
@@ -69,7 +79,10 @@ function mockAuth(passwordMatches = true) {
     eq: () => ({
       maybeSingle: () =>
         Promise.resolve({
-          data: { passwords: [{ password_hash: "stored-hash" }] },
+          data: {
+            user_id: VALID_UUID,
+            passwords: [{ password_hash: "stored-hash" }],
+          },
           error: null,
         }),
     }),
@@ -186,8 +199,8 @@ describe("toUserDetails", () => {
     expect(toUserDetails(dbRow)).toEqual(apiUser);
   });
 
-  it("returns passwordHash: null when the user has no password row", () => {
-    expect(toUserDetails({ ...dbRow, passwords: [] }).passwordHash).toBeNull();
+  it("never includes a password hash in the API shape", () => {
+    expect(toUserDetails(dbRow)).not.toHaveProperty("passwordHash");
   });
 
   it("returns empty arrays when there are no foods or allergies", () => {
@@ -373,15 +386,14 @@ describe("GET /api/users", () => {
     expect(res.body).toEqual({ error: "database error" });
   });
 
-  // Documents current behavior. Delete/flip this test when you remove
-  // passwordHash from the response (you should; see the WARNING in client.ts).
-  it("currently includes passwordHash in the response", async () => {
+  it("never includes password hashes in the response", async () => {
     mockAuth();
     mocks.select.mockResolvedValue({ data: [dbRow], error: null });
 
     const res = await request(app).get("/api/users").send(creds);
 
-    expect(res.body[0]).toHaveProperty("passwordHash", "$2b$12$hashed");
+    expect(res.body[0]).not.toHaveProperty("passwordHash");
+    expect(JSON.stringify(res.body)).not.toContain("$2b$12$hashed");
   });
 });
 
@@ -445,6 +457,129 @@ describe("GET /api/users/:id", () => {
 
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ error: "database error" });
+  });
+
+  it("returns 403 when the authenticated user targets another user's id", async () => {
+    mockAuth();
+    mocks.maybeSingle.mockResolvedValue({ data: otherDbRow, error: null });
+
+    const res = await request(app)
+      .get(`/api/users/${OTHER_UUID}`)
+      .send(creds); // alice is authenticated, but OTHER_UUID belongs to bob
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "not authorized to access this user" });
+    // The user table must never be queried for someone else's record
+    expect(mocks.select).not.toHaveBeenCalledWith(USER_SELECT);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ownership enforcement (PUT / DELETE)
+// ---------------------------------------------------------------------------
+
+describe("ownership enforcement on PUT / DELETE", () => {
+  it("returns 403 when PUT favorite-foods targets another user's id", async () => {
+    mockAuth();
+
+    const res = await request(app)
+      .put(`/api/users/${OTHER_UUID}/favorite-foods`)
+      .send({ ...creds, favoriteFoods: ["pizza"] });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "not authorized to access this user" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when PUT allergies targets another user's id", async () => {
+    mockAuth();
+
+    const res = await request(app)
+      .put(`/api/users/${OTHER_UUID}/allergies`)
+      .send({ ...creds, allergies: ["peanuts"] });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "not authorized to access this user" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when DELETE favorite-foods targets another user's id", async () => {
+    mockAuth();
+
+    const res = await request(app)
+      .delete(`/api/users/${OTHER_UUID}/favorite-foods`)
+      .send({ ...creds, food: "pizza" });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "not authorized to access this user" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when DELETE allergies targets another user's id", async () => {
+    mockAuth();
+
+    const res = await request(app)
+      .delete(`/api/users/${OTHER_UUID}/allergies`)
+      .send({ ...creds, allergy: "peanuts" });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "not authorized to access this user" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("allows the authenticated user to update their own record (case-insensitive id)", async () => {
+    mockAuth();
+    mocks.rpc.mockResolvedValue({ data: null, error: null });
+
+    const res = await request(app)
+      .put(`/api/users/${VALID_UUID.toUpperCase()}/favorite-foods`)
+      .send({ ...creds, favoriteFoods: ["pizza"] });
+
+    expect(res.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "update_user_details",
+      expect.objectContaining({ p_user_id: VALID_UUID.toUpperCase() })
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUT body element validation
+// ---------------------------------------------------------------------------
+
+describe("PUT body element validation", () => {
+  it.each([
+    ["not an array", "pizza"],
+    ["null", null],
+    ["contains empty string", ["pizza", ""]],
+    ["contains non-string", ["pizza", 5]],
+    ["contains too-long string", ["x".repeat(101)]],
+  ])("rejects invalid favoriteFoods elements (%s)", async (_label, favoriteFoods) => {
+    mockAuth();
+
+    const res = await request(app)
+      .put(`/api/users/${VALID_UUID}/favorite-foods`)
+      .send({ ...creds, favoriteFoods });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "favoriteFoods must be an array of strings" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["not an array", "peanuts"],
+    ["contains empty string", ["peanuts", ""]],
+    ["contains non-string", ["peanuts", true]],
+  ])("rejects invalid allergies elements (%s)", async (_label, allergies) => {
+    mockAuth();
+
+    const res = await request(app)
+      .put(`/api/users/${VALID_UUID}/allergies`)
+      .send({ ...creds, allergies });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "allergies must be an array of strings" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 });
 

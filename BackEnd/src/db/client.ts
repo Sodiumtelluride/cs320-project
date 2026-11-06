@@ -1,10 +1,11 @@
 import "dotenv/config";
 import express, { type Request, type Response, type NextFunction } from "express";
+import session from "express-session";
 import * as bcrypt from "bcrypt";
-import {supabase} from "./supabase.js"
+import { supabase } from "./supabase.js";
 
-// npm install express @supabase/supabase-js bcrypt dotenv
-// npm install -D typescript tsx @types/express @types/node @types/bcrypt
+// npm install express express-session @supabase/supabase-js bcrypt dotenv
+// npm install -D typescript tsx @types/express @types/express-session @types/node @types/bcrypt
 // ---------- Types ----------
 
 interface CreateUserBody {
@@ -32,58 +33,119 @@ interface UserRow {
   allergies: { allergy_name: string }[];
 }
 
-// Shape we send to the frontend
+// Shape we send to the frontend.
+// NOTE: password hashes are deliberately NOT exposed here.
 interface UserDetails {
   userId: string;
   username: string;
-  passwordHash: string | null; // see the warning on the GET routes
   favoriteFoods: string[];
   allergies: string[];
 }
 
 interface UpdateUserBody {
-  favoriteFoods?: string[];
-  allergies?: string[];
+  favoriteFoods?: unknown;
+  allergies?: unknown;
 }
 interface AuthBody {
   username: string;
   password: string;
 }
 
-async function authenticateUser(username: string, password: string): Promise<boolean> {
+/**
+ * The authenticated user's id, set on `req` by `authorizeUser` after a
+ * successful credential check.
+ */
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      authUserId?: string;
+    }
+  }
+}
+
+/** Data stored in the server-side session (set by POST /api/authenticate). */
+declare module "express-session" {
+  interface SessionData {
+    userId?: string;
+  }
+}
+
+async function authenticateUser(username: string, password: string): Promise<string | null> {
   const { data, error } = await supabase
     .from("users")
-    .select("passwords(password_hash)")
+    .select("user_id, passwords(password_hash)")
     .eq("username", username)
     .maybeSingle();
   if (error) {
     console.error(error);
-    return false;
+    return null;
   }
-  if (!data?.passwords?.[0]?.password_hash) {
-    return false;
+  const hash = data?.passwords?.[0]?.password_hash;
+  if (!hash) {
+    return null;
   }
-  return await bcrypt.compare(password, data.passwords[0].password_hash);
+  const matches = await bcrypt.compare(password, hash);
+  return matches ? (data as { user_id: string }).user_id : null;
 }
+
+/**
+ * Middleware for protected routes.
+ *
+ * Auth order:
+ *   1. Session cookie (set by POST /api/authenticate) — works on GET requests
+ *      because the browser sends the cookie automatically.
+ *   2. Username/password in the JSON body — fallback for clients that don't
+ *      persist cookies (e.g. supertest without a cookie jar).
+ *
+ * On success, stores the authenticated user's id on `req.authUserId` so
+ * downstream handlers can enforce ownership.
+ */
 async function authorizeUser(req: Request, res: Response, next: NextFunction) {
+  // 1. Session cookie (preferred — works on GET)
+  const sessionUserId = req.session?.userId;
+  if (sessionUserId) {
+    req.authUserId = sessionUserId;
+    return next();
+  }
+
+  // 2. Body-based credentials (fallback)
   const { username, password } = (req.body ?? {}) as Partial<AuthBody>;
   if (!username || !password) {
     return res.status(400).json({ error: "Username and password are required" });
   }
-  const isAuthenticated = await authenticateUser(username, password);
-  if (!isAuthenticated) {
+  const authUserId = await authenticateUser(username, password);
+  if (!authUserId) {
     return res.status(401).json({ error: "Invalid credentials" });
+  }
+  req.authUserId = authUserId;
+  next();
+}
+
+/**
+ * Middleware that must run AFTER `authorizeUser`. Rejects requests where the
+ * `:id` path parameter does not belong to the authenticated user.
+ * GET /api/users (list all users) skips this; the username lookup route
+ * checks ownership after it finds the user.
+ */
+function requireOwnership(req: Request, res: Response, next: NextFunction) {
+  const { id } = req.params;
+  if (!id || !UUID_RE.test(id)) {
+    return res.status(400).json({ error: "id must be a valid UUID" });
+  }
+  if (id.toLowerCase() !== req.authUserId?.toLowerCase()) {
+    return res.status(403).json({ error: "not authorized to access this user" });
   }
   next();
 }
 
+// Password hashes stay out of every API response.
 const USER_SELECT =
-  "user_id, username, passwords(password_hash), favorite_foods(food_name), allergies(allergy_name)";
+  "user_id, username, favorite_foods(food_name), allergies(allergy_name)";
 
 export const toUserDetails = (row: UserRow): UserDetails => ({
   userId: row.user_id,
   username: row.username,
-  passwordHash: row.passwords[0]?.password_hash ?? null,
   favoriteFoods: row.favorite_foods.map((f) => f.food_name),
   allergies: row.allergies.map((a) => a.allergy_name),
 });
@@ -134,6 +196,31 @@ export function parseCreateUserBody(
 
 export const app = express();
 app.use(express.json());
+
+// The session secret signs the cookie, so it must come from the environment.
+// Tests get a fixed fallback so they don't need a .env entry.
+const sessionSecret =
+  process.env.SESSION_SECRET ?? (process.env.VITEST ? "test-only-session-secret" : undefined);
+if (!sessionSecret) {
+  throw new Error("SESSION_SECRET environment variable is required");
+}
+
+// Session cookie: set on successful /api/authenticate, read by authorizeUser
+// on subsequent requests. The cookie carries an opaque session id; the server
+// stores the authenticated user's id in the session object.
+app.use(
+  session({
+    secret: sessionSecret,
+    saveUninitialized: false,
+    resave: false,
+    cookie: {
+      httpOnly: true, // not readable from frontend JavaScript
+      sameSite: "lax", // not sent on cross-site POST/PUT/DELETE
+      secure: process.env.NODE_ENV === "production", // HTTPS-only in production
+      maxAge: 60_000 * 60, // 1 hour
+    },
+  })
+);
 
 /**
  * Expected POST body:
@@ -189,11 +276,7 @@ app.post(
 /**
  * GET /api/users  ->  all users with their foods and allergies
  *
- * WARNING: this includes passwordHash because you asked for it. Even though it is
- * a bcrypt hash, exposing it to a frontend lets anyone who gets it attempt offline
- * cracking. Delete the `passwordHash` field from UserDetails/toUserDetails and the
- * `passwords(...)` part of USER_SELECT once you are done testing, and put real
- * authentication in front of these routes.
+ * The response intentionally omits password hashes.
  */
 app.get(
   "/api/users",
@@ -211,15 +294,13 @@ app.get(
   }
 );
 
-/** GET /api/users/:id  ->  one user */
+/** GET /api/users/:id  ->  one user (only the authenticated user's own record) */
 app.get(
   "/api/users/:id",
   authorizeUser,
+  requireOwnership,
   async (req: Request<{ id: string }>, res: Response<UserDetails | ErrorResponse>) => {
     const { id } = req.params;
-    if (!UUID_RE.test(id)) {
-      return res.status(400).json({ error: "id must be a valid UUID" });
-    }
 
     const { data, error } = await supabase
       .from("users")
@@ -238,6 +319,8 @@ app.get(
     return res.json(toUserDetails(data as unknown as UserRow));
   }
 );
+
+/** GET /api/users/username/:username  ->  one user (only the authenticated user's own record) */
 app.get(
   "/api/users/username/:username",
   authorizeUser,
@@ -258,7 +341,12 @@ app.get(
       return res.status(404).json({ error: "user not found" });
     }
 
-    return res.json(toUserDetails(data as unknown as UserRow));
+    const row = data as unknown as UserRow;
+    if (row.user_id.toLowerCase() !== req.authUserId?.toLowerCase()) {
+      return res.status(403).json({ error: "not authorized to access this user" });
+    }
+
+    return res.json(toUserDetails(row));
   }
 );
 /*
@@ -275,13 +363,11 @@ curl http://localhost:3000/api/users/<user-uuid>
 app.put(
   "/api/users/:id/favorite-foods",
   authorizeUser,
+  requireOwnership,
   async (req: Request<{ id: string }, {}, UpdateUserBody>, res: Response<ErrorResponse>) => {
     const { id } = req.params;
     const { favoriteFoods } = req.body;
-    if (!UUID_RE.test(id)) {
-      return res.status(400).json({ error: "id must be a valid UUID" });
-    }
-    if (!Array.isArray(favoriteFoods)) {
+    if (!isStringList(favoriteFoods)) {
       return res.status(400).json({ error: "favoriteFoods must be an array of strings" });
     }
     const { data, error } = await supabase.rpc("update_user_details", {
@@ -299,13 +385,11 @@ app.put(
 app.put(
   "/api/users/:id/allergies",
   authorizeUser,
+  requireOwnership,
   async (req: Request<{ id: string }, {}, UpdateUserBody>, res: Response<ErrorResponse>) => {
     const { id } = req.params;
     const { allergies } = req.body;
-    if (!UUID_RE.test(id)) {
-      return res.status(400).json({ error: "id must be a valid UUID" });
-    }
-    if (!Array.isArray(allergies)) {
+    if (!isStringList(allergies)) {
       return res.status(400).json({ error: "allergies must be an array of strings" });
     }
     const { data, error } = await supabase.rpc("update_user_details", {
@@ -324,12 +408,10 @@ app.put(
 app.delete(
   "/api/users/:id/favorite-foods",
   authorizeUser,
+  requireOwnership,
   async (req: Request<{ id: string }, {}, { food: string }>, res: Response<ErrorResponse>) => {
     const { id } = req.params;
     const { food } = req.body;
-    if (!UUID_RE.test(id)) {
-      return res.status(400).json({ error: "id must be a valid UUID" });
-    }
     if (!food || typeof food !== "string") {
       return res.status(400).json({ error: "food must be a string" });
     }
@@ -348,12 +430,10 @@ app.delete(
 app.delete(
   "/api/users/:id/allergies",
   authorizeUser,
+  requireOwnership,
   async (req: Request<{ id: string }, {}, { allergy: string }>, res: Response<ErrorResponse>) => {
     const { id } = req.params;
     const { allergy } = req.body;
-    if (!UUID_RE.test(id)) {
-      return res.status(400).json({ error: "id must be a valid UUID" });
-    }
     if (!allergy || typeof allergy !== "string") {
       return res.status(400).json({ error: "allergy must be a string" });
     }
@@ -369,19 +449,38 @@ app.delete(
     return res.status(200).json();
   }
 );
-// Add authentication route
+// Add authentication route — sets the session cookie on success
 app.post(
   "/api/authenticate",
   async (req: Request<{}, {}, AuthBody>, res: Response<{ success: boolean }>) => {
-    const { username, password } = req.body;
+    const { username, password } = (req.body ?? {}) as Partial<AuthBody>;
     if (!username || !password) {
       return res.status(400).json({ success: false });
     }
-    const isAuthenticated = await authenticateUser(username, password);
-    if (!isAuthenticated) {
+    const authUserId = await authenticateUser(username, password);
+    if (!authUserId) {
       return res.status(401).json({ success: false });
     }
-    return res.json({ success: true });
+    // Issue a fresh session id on login to prevent session fixation.
+    req.session.regenerate((err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ success: false });
+      }
+      req.session.userId = authUserId;
+      res.json({ success: true });
+    });
+  }
+);
+
+// POST /api/logout — destroys the session (clears the cookie)
+app.post(
+  "/api/logout",
+  (req: Request, res: Response<{ success: boolean }>) => {
+    req.session.destroy(() => {
+      res.clearCookie("connect.sid");
+      res.json({ success: true });
+    });
   }
 );
 
