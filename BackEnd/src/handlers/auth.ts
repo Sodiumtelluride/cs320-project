@@ -1,5 +1,5 @@
 import type { Request, Response } from "express-serve-static-core";
-import { supabase } from "../db/client.js";
+import { supabase } from "../db/supabase.js";
 import * as bcrypt from "bcrypt";
 
 export async function login(request: Request, response: Response) {
