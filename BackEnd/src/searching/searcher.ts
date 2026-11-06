@@ -12,8 +12,8 @@ export class Searcher{
         this.getData();
     }
 
-    private async getData(){
-        const {data, error} = await supabase.from("menu_items").select("name, calories").limit(100000);
+    public async getData(){
+        const {data, error} = await supabase.from("menu_items").select("name, calories, clean_diet").limit(100000);
 
         if(error){
             console.error("database fetch failed in search getData");
@@ -23,14 +23,30 @@ export class Searcher{
         for(const row of data){
             if(row.calories > 10){
                 menuItem = new DataNode();
-                menuItem.data.set("calories",row.calories);
+                menuItem.data.set("clean_diet",row.clean_diet);
                 this.allMeals.set(row.name,menuItem);
             }
         }
         this.dataCollected = true;
     }
 
-    public async SearchForSimilar(userSearch : string) : Promise<string[]> {
+    private checkForRequiredTags(filter : string[], mealName : string) : boolean {
+
+        const filterSet = new Set<string>(filter);
+
+        const mealNode = this.allMeals.get(mealName);
+        if(mealNode === undefined) return false;
+        const clean_diet = mealNode.data.get("clean_diet");
+        if(typeof(clean_diet) !== "string") return false;
+        const tags = new Set<string>(clean_diet.split(", "));
+
+        if(filterSet.has("Halal") && !tags.has("Halal")) return false;
+        if(filterSet.has("Vegetarian") && !(tags.has("Vegetarian") || tags.has("Plant Based"))) return false;
+        if(filterSet.has("Plant Based") && !tags.has("Plant Based")) return false;
+        return true;
+    }
+
+    public async SearchForSimilar(userSearch : string, filter : string[] = []) : Promise<string[]> {
         if(!this.dataCollected){
             console.warn("data collection not finished yet");
             return [];
@@ -39,6 +55,7 @@ export class Searcher{
 
         let score : number;
         for(const mealName of this.allMeals.keys()){
+            if(!this.checkForRequiredTags(filter,mealName)) continue;
             score = this.getScore(userSearch, mealName);
             priorityQueue.enqueue([mealName,score]);
         }        
@@ -77,7 +94,7 @@ export class Searcher{
     
 }
 
-export function compareSpelling(word1 : string, word2 : string) : number{
+function compareSpelling(word1 : string, word2 : string) : number{
     const matrix : number[][] = [];
     for(let i = 0; i < word1.length + 1; i++){
         const row = [] as number[];
@@ -111,5 +128,3 @@ export function compareSpelling(word1 : string, word2 : string) : number{
     const similarity = 1 - (distance)/word2.length;
     return (similarity > .5)? similarity : 0;
 }
-
-
