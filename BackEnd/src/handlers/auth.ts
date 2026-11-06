@@ -20,12 +20,14 @@ export async function login(request: Request, response: Response) {
     });
 }
 
-async function validateUser(request: Request, response: Response) {
-    // Check if given correct login information
+// Messed up here
+// God bless testing
+export async function validateUser(email: string, password: string) {
+    // Grab password hash from database
     const { data: user, error } = await supabase
         .from("users")
-        .select("id, username, password_hash")
-        .eq("username", request.body.username)
+        .select("id, email, password_hash")
+        .eq("email", email)
         .maybeSingle();
   
     if (error) {
@@ -33,7 +35,7 @@ async function validateUser(request: Request, response: Response) {
     }
 
     // If the user doesn't exist, or password doesn't match it's hash fail
-    if (!user || !(await bcrypt.compare(request.body.password, user.password_hash))) {
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
         return { success: false, id: undefined };
     }
 
