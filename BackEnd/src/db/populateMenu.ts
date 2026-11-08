@@ -20,6 +20,15 @@ type itemJob = {
     itemNode: DataNode;
     stationName: string;
 }
+type mealItems = {
+    meal_id: number;
+    menu_item_id: number;
+    station: string;
+}
+type foodInfoJob = {
+    menuItemId: number;
+    itemNode: DataNode;
+}
 
 export function cleanDate(date: string){
     const cleaned = new Date(date);
@@ -121,27 +130,43 @@ export async function populateMenuLocations(locationId: number, menusNode: DataN
             }
             
         }
-        const menuRows = itemJobs.map(item => buildNutritionalInfo(item.itemNode));
+        const seen = new Set<string>();
 
-        const insertedItems = await insertMenuData(menuRows);
+        const uniqueJobs = itemJobs.filter(job => {
+            const food = buildNutritionalInfo(job.itemNode);
+            const key = JSON.stringify([food.name, food.calories, food.serving_size]);
 
-        const mealItems = [];
-        const foodInfoJob = [];
+            if(seen.has(key)){
+                return false;
+            }
+            seen.add(key);
+            return true;
+        })
 
-        for(let i = 0; i< insertedItems.length; i++){
-            const menuId = insertedItems[i].id;
-            const itemJob = itemJobs[i]!;
+        const menuRows = uniqueJobs.map(item => buildNutritionalInfo(item.itemNode));
 
-            foodInfoJob.push({ 
-                menuItemId: menuId,
-                itemNode: itemJob.itemNode
-        });
+        const foods = await insertMenuData(menuRows);
+
+        const mealItems: mealItems[] = []
+
+        const foodInfoJob : foodInfoJob[] = []
+
+        for(let i = 0; i< uniqueJobs.length; i++){
+            const food = foods[i]!;
+            const itemJob = uniqueJobs[i]!;
+
 
             mealItems.push({
                 meal_id: mealId,
-                menu_item_id: menuId,
+                menu_item_id: food.id,
                 station: itemJob.stationName
             });
+
+            foodInfoJob.push({
+                menuItemId: food.id,
+                itemNode: itemJob.itemNode
+            })
+            
         }
         await Promise.all([
             insertFoodInfoBatch(foodInfoJob),

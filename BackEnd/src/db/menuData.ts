@@ -130,7 +130,9 @@ export async function insertMenuData(menuItems: any[]){
     }
     const { data, error } = await supabase
         .from("menu_items")
-        .insert(menuItems)
+        .upsert(menuItems, {
+            onConflict: "name,calories,serving_size",
+        })
         .select();
     
     if (error) {
