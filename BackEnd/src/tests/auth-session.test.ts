@@ -16,7 +16,7 @@ import * as bcrypt from "bcrypt";
 
 vi.mock("../db/supabase.js", () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
 import { supabase } from "../db/supabase.js";
-import { app } from "../db/client.js";
+import { app } from "../app.js";
 
 const id = "00000000-0000-4000-8000-000000000001";
 const otherId = "00000000-0000-4000-8000-000000000002";

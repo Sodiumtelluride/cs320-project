@@ -1,5 +1,5 @@
 /**
- * Integration tests for the user routes in src/db/client.ts.
+ * Integration tests for the user routes in src/routes/users.ts.
  *
  * These talk to a REAL Supabase database (the one in .env.test), so:
  *   - ownership enforcement (403 cross-user access) is verified end-to-end
@@ -9,7 +9,7 @@
  * Skipped automatically when SUPABASE_URL is not configured.
  *
  * IMPORTANT: this file must NOT be imported in the same process as
- * client.test.ts. That file mocks @supabase/supabase-js, which would
+ * routes/users.test.ts. That file mocks @supabase/supabase-js, which would
  * leak into the real client here. Vitest runs each test file in its own
  * worker, so this is safe in practice.
  *
@@ -17,7 +17,7 @@
  * SECURITY DEFINER functions restricted to the service_role key. The .env.test
  * credentials are a publishable (anon-class) key, so those two RPCs return
  * 403/permission errors against the real database. The PUT/DELETE routes are
- * therefore only covered by unit tests (src/db/client.test.ts); the real-DB
+ * therefore only covered by unit tests (src/db/routes/users.test.ts); the real-DB
  * coverage here stops at create + authenticate + read + ownership.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -32,9 +32,9 @@ const runAll = hasDatabase ? beforeAll : beforeAll.skip;
 const runAfter = hasDatabase ? afterAll : afterAll.skip;
 
 // Import AFTER the env check so the module can read the real env vars
-// (src/db/client.ts reads process.env at import time).
+// (src/app.ts -> src/db/client.ts read process.env at import time).
 const { app } = hasDatabase
-  ? await import("../db/client.js")
+  ? await import("../app.js")
   : { app: null as unknown as Parameters<typeof request>[0] };
 
 const OTHER_UUID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeffff0000";

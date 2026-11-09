@@ -1,12 +1,12 @@
 # Authentication integration
 
-The frontend talks to the Express app in `BackEnd/src/db/client.ts` through the rewrites in `frontend/next.config.ts`. Login (`POST /api/authenticate`), registration (`POST /api/users`), session restoration (`GET /api/auth/me`) and logout (`POST /api/auth/logout`) came from PR #27 and the login-request helper from PR #26. The profile page also edits allergies and favorite foods with `PUT`/`DELETE` on `/api/users/:id/allergies` and `/api/users/:id/favorite-foods` — the routes from PR #33, kept here as the single source of user routes.
+The frontend talks to the Express app in `BackEnd/src/app.ts` through the rewrites in `frontend/next.config.ts`. Its user routes live in `BackEnd/src/routes/users.ts` and `BackEnd/src/handlers/users.ts`, the session routes in `BackEnd/src/routes/auth.ts` and `BackEnd/src/handlers/auth.ts`, and `BackEnd/src/db/client.ts` is the Supabase data layer behind them. Login (`POST /api/authenticate`), registration (`POST /api/users`), session restoration (`GET /api/auth/me`) and logout (`POST /api/auth/logout`) came from PR #27 and the login-request helper from PR #26. The profile page also edits allergies and favorite foods with `PUT`/`DELETE` on `/api/users/:id/allergies` and `/api/users/:id/favorite-foods` — the routes from PR #33, kept here as the single source of user routes.
 
 PR #29 reverted those update/delete routes as unneeded for login alone. They are needed now that the profile edits them, so `20261028233031_update_user_details.sql` **must** be applied to the database, along with `20261109001500_allow_anon_user_details.sql` if you use the publishable key (see below).
 
 ## Run locally
 
-In `BackEnd/.env`, configure `SUPABASE_URL`, `SUPABASE_KEY`, and a strong random `SESSION_SECRET` (`src/db/client.ts` refuses to start without one). The database needs three RPCs: `create_user_with_details` for registration, plus `update_user_details` and `delete_user_details` for profile edits.
+In `BackEnd/.env`, configure `SUPABASE_URL`, `SUPABASE_KEY`, and a strong random `SESSION_SECRET` (`src/app.ts` refuses to start without one). The database needs three RPCs: `create_user_with_details` for registration, plus `update_user_details` and `delete_user_details` for profile edits.
 
 `SUPABASE_KEY` may be either:
 
@@ -14,6 +14,33 @@ In `BackEnd/.env`, configure `SUPABASE_URL`, `SUPABASE_KEY`, and a strong random
 - the **publishable (anon)** key, which requires the `GRANT EXECUTE` statements in `20261021183736_allow_anon.sql` (registration) and `20261109001500_allow_anon_user_details.sql` (profile edits). Without that grant, allergy and favorite-food saves fail with `PGRST202`/permission errors.
 
 Never put a service-role key in frontend configuration.
+
+## Push the migrations
+
+`BackEnd/` **is** the Supabase project root — `BackEnd/supabase/config.toml` is there, the
+project is already linked to the hosted "UMass Dining Test DB", and the CLI reads exactly
+`BackEnd/supabase/migrations/`. So from `BackEnd`:
+
+```bash
+npx supabase login    # once per machine, if you have never signed in
+npx supabase db push  # lists the pending migrations, then applies them
+```
+
+If `db push` tries to re-apply migrations that are already on the server (it does this when
+earlier migrations were pasted into the dashboard by hand, so the CLI has no local history
+to compare against), skip the CLI: open the project in the dashboard → **SQL Editor** → paste
+the entire contents of `supabase/migrations/20261028233031_update_user_details.sql` and Run,
+then do the same for `supabase/migrations/20261109001500_allow_anon_user_details.sql`.
+
+To check it landed, run this in the SQL editor:
+
+```sql
+SELECT proname FROM pg_proc
+WHERE proname IN ('update_user_details', 'delete_user_details');
+```
+
+Both rows should come back. Or just log in on `/profile` and add an allergy — it should save
+instead of reporting "We couldn't update your account."
 
 From `BackEnd`, run `npm ci`, `npm run build`, then `npm start` (port 3001 by default; `PORT` can override it). From `frontend`, run `npm ci` then `npm run dev`. Next.js forwards authentication requests to `http://127.0.0.1:3001`; set server-only `BACKEND_URL` before building for another backend location. Browser requests stay on the frontend origin so session cookies work without cross-origin cookie configuration.
 
