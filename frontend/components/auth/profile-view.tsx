@@ -1,14 +1,95 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Heart, UserRound } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { Heart, Plus, ShieldAlert, UserRound, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+
+type EditableListProps = {
+  title: string;
+  description: string;
+  placeholder: string;
+  emptyLabel: string;
+  items: string[];
+  onAdd(value: string): Promise<void>;
+  onRemove(value: string): Promise<void>;
+};
+
+function EditableList({ title, description, placeholder, emptyLabel, items, onAdd, onRemove }: EditableListProps) {
+  const [value, setValue] = useState("");
+  const [pending, setPending] = useState(false);
+  const [listError, setListError] = useState("");
+
+  function failWith(cause: unknown) {
+    setListError(cause instanceof Error ? cause.message : "We couldn’t save that. Please try again.");
+  }
+
+  async function add(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    setPending(true);
+    setListError("");
+    try { await onAdd(value); setValue(""); }
+    catch (cause) { failWith(cause); }
+    finally { setPending(false); }
+  }
+
+  async function remove(item: string) {
+    if (pending) return;
+    setPending(true);
+    setListError("");
+    try { await onRemove(item); }
+    catch (cause) { failWith(cause); }
+    finally { setPending(false); }
+  }
+
+  return (
+    <form onSubmit={add} className="space-y-4">
+      <div className="space-y-1">
+        <h3 className="font-medium">{title}</h3>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      {items.length ? (
+        <ul className="flex flex-wrap gap-2">
+          {items.map((item) => (
+            <li key={item} className="inline-flex items-center gap-1.5 rounded-full border bg-accent px-3 py-1 text-sm font-medium">
+              {item}
+              <button type="button" aria-label={`Remove ${item}`} disabled={pending} onClick={() => { void remove(item); }} className="text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50">
+                <X className="size-3.5" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+      )}
+      {listError && <p role="alert" className="text-sm text-primary">{listError}</p>}
+      <div className="flex flex-wrap gap-2">
+        <Input
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          placeholder={placeholder}
+          aria-label={`Add to ${title.toLowerCase()}`}
+          disabled={pending}
+          className="max-w-xs"
+        />
+        <Button type="submit" variant="outline" disabled={pending || !value.trim()}>
+          <Plus className="size-4" aria-hidden="true" />
+          Add
+        </Button>
+      </div>
+    </form>
+  );
+}
 
 export function ProfileView() {
-  const { user, loading, sessionError, openAuth, signOut } = useAuth();
+  const {
+    user, loading, sessionError, openAuth, signOut,
+    addAllergy, removeAllergy, addFavoriteFood, removeFavoriteFood,
+  } = useAuth();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
@@ -53,10 +134,43 @@ export function ProfileView() {
       </Card>
       <Card>
         <CardHeader>
+          <ShieldAlert className="mb-2 size-6 text-primary" aria-hidden="true" />
+          <CardTitle><h2>Allergies</h2></CardTitle>
+          <CardDescription>{user ? "Saved to your account and used to flag menu items." : "Log in or sign up to keep a list of allergies."}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {user ? (
+            <EditableList
+              title="Allergies"
+              description="Add anything you need to avoid. Tap an item to remove it."
+              placeholder="e.g. Peanuts"
+              emptyLabel="No allergies saved yet."
+              items={user.allergies ?? []}
+              onAdd={addAllergy}
+              onRemove={removeAllergy}
+            />
+          ) : <p role="status" className="text-sm text-muted-foreground">Sign in to manage allergies.</p>}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
           <Heart className="mb-2 size-6 text-primary" aria-hidden="true" />
           <CardTitle><h2>Your favorites</h2></CardTitle>
-          <CardDescription>{user ? "Your saved dining picks will appear here when favorites are available." : "Log in or sign up to save favorites when they become available."}</CardDescription>
+          <CardDescription>{user ? "Foods you like, saved to your account." : "Log in or sign up to save favorites."}</CardDescription>
         </CardHeader>
+        <CardContent>
+          {user ? (
+            <EditableList
+              title="Favorite foods"
+              description="Add anything you like eating. Tap an item to remove it."
+              placeholder="e.g. Pizza"
+              emptyLabel="No favorites saved yet."
+              items={user.favoriteFoods ?? []}
+              onAdd={addFavoriteFood}
+              onRemove={removeFavoriteFood}
+            />
+          ) : <p role="status" className="text-sm text-muted-foreground">Sign in to save favorites.</p>}
+        </CardContent>
       </Card>
     </div>
   );

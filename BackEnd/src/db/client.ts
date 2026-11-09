@@ -1,29 +1,39 @@
-import express, { type Request, type Response } from "express";
+import "dotenv/config";
 import * as bcrypt from "bcrypt";
-import {supabase} from "./supabase.js"
+import { supabase } from "./supabase.js";
 
-// npm install express @supabase/supabase-js bcrypt dotenv
-// npm install -D typescript tsx @types/express @types/node @types/bcrypt
+// npm install @supabase/supabase-js bcrypt dotenv
+// npm install -D typescript tsx @types/node @types/bcrypt
+//
+// Account data layer. The HTTP routes for this data live in src/routes/users.ts,
+// src/routes/auth.ts and src/handlers/; this file only knows about Supabase, the
+// row shapes PostgREST returns, and how to validate what comes in from a request.
+//
+// Schema (supabase/migrations/20261012190538_users.sql):
+//   users(user_id, username) + passwords(password_hash, user_id)
+//   + favorite_foods(food_name, user_id) + allergies(allergy_name, user_id)
+// There is no email column — "email" in the API is just the username.
+
 // ---------- Types ----------
 
-interface CreateUserBody {
+export interface CreateUserBody {
   username: string;
   password: string;
   favoriteFoods: string[];
   allergies: string[];
 }
 
-interface CreateUserResponse {
+export interface CreateUserResponse {
   userId: string;
   username: string;
 }
 
-interface ErrorResponse {
+export interface ErrorResponse {
   error: string;
 }
 
-// Shape of the nested rows PostgREST returns for the GET query
-interface UserRow {
+// Shape of the nested rows PostgREST returns for the GET queries
+export interface UserRow {
   user_id: string;
   username: string;
   passwords: { password_hash: string }[];
@@ -31,31 +41,62 @@ interface UserRow {
   allergies: { allergy_name: string }[];
 }
 
-// Shape we send to the frontend
-interface UserDetails {
+// Shape we send to the frontend.
+// NOTE: password hashes are deliberately NOT exposed here.
+export interface UserDetails {
   userId: string;
   username: string;
-  passwordHash: string | null; // see the warning on the GET routes
   favoriteFoods: string[];
   allergies: string[];
 }
 
-const USER_SELECT =
-  "user_id, username, passwords(password_hash), favorite_foods(food_name), allergies(allergy_name)";
+export interface UpdateUserBody {
+  favoriteFoods?: unknown;
+  allergies?: unknown;
+}
+
+export interface AuthBody {
+  username: string;
+  password: string;
+}
+
+/**
+ * Shape GET /api/auth/me returns (wrapped in an array): user_id and username
+ * renamed to the id / email names frontend/lib/auth.ts expects.
+ */
+export interface AuthMeUser {
+  id: string;
+  email: string;
+  favoriteFoods: string[];
+  allergies: string[];
+}
+
+/** Password hashes stay out of every API response. */
+export const USER_SELECT =
+  "user_id, username, favorite_foods(food_name), allergies(allergy_name)";
+
+/** The hash is only ever read here, for credential checks. */
+const AUTH_SELECT = "user_id, passwords(password_hash)";
 
 export const toUserDetails = (row: UserRow): UserDetails => ({
   userId: row.user_id,
   username: row.username,
-  passwordHash: row.passwords[0]?.password_hash ?? null,
   favoriteFoods: row.favorite_foods.map((f) => f.food_name),
   allergies: row.allergies.map((a) => a.allergy_name),
 });
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const toAuthMeUser = (row: UserRow): AuthMeUser => ({
+  id: row.user_id,
+  email: row.username,
+  favoriteFoods: row.favorite_foods.map((f) => f.food_name),
+  allergies: row.allergies.map((a) => a.allergy_name),
+});
+
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ---------- Validation ----------
 
-const isStringList = (value: unknown): value is string[] =>
+export const isStringList = (value: unknown): value is string[] =>
   Array.isArray(value) &&
   value.every((s) => typeof s === "string" && s.length > 0 && s.length <= 100);
 
@@ -93,144 +134,27 @@ export function parseCreateUserBody(
   return { ok: true, value: { username, password, favoriteFoods, allergies } };
 }
 
-// ---------- App ----------
-
-export const app = express();
-app.use(express.json());
+// ---------- Credential check ----------
 
 /**
- * Expected POST body:
- * {
- *   "username": "alice",
- *   "password": "s3cret-pass",
- *   "favoriteFoods": ["pizza", "sushi"],
- *   "allergies": ["peanuts", "shellfish"]
- * }
+ * Compares a password with the bcrypt hash stored for that username.
+ * Returns the user's id on success and null on any failure (including an unknown
+ * username), so a caller can never tell which half of the credentials was wrong.
  */
-app.post(
-  "/api/users",
-  async (req: Request, res: Response<CreateUserResponse | ErrorResponse>) => {
-    const parsed = parseCreateUserBody(req.body);
-    if (!parsed.ok) {
-      return res.status(400).json({ error: parsed.error });
-    }
-    const { username, password, favoriteFoods, allergies } = parsed.value;
-
-    try {
-      const passwordHash = await bcrypt.hash(password, 12);
-
-      // One atomic call: user + password + foods + allergies
-      const { data, error } = await supabase.rpc("create_user_with_details", {
-        p_username: username,
-        p_password_hash: passwordHash,
-        p_foods: favoriteFoods,
-        p_allergies: allergies,
-      });
-
-      if (error) {
-        if (error.code === "23505") {
-          // unique_violation on users.username
-          return res.status(409).json({ error: "username already taken" });
-        }
-        console.error(error);
-        return res.status(500).json({ error: "database error" });
-      }
-
-      if (typeof data !== "string") {
-        console.error("Unexpected rpc result:", data);
-        return res.status(500).json({ error: "unexpected database response" });
-      }
-
-      return res.status(201).json({ userId: data, username });
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: "internal server error" });
-    }
+export async function authenticateUser(username: string, password: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("users")
+    .select(AUTH_SELECT)
+    .eq("username", username)
+    .maybeSingle();
+  if (error) {
+    console.error(error);
+    return null;
   }
-);
-
-/**
- * GET /api/users  ->  all users with their foods and allergies
- *
- * WARNING: this includes passwordHash because you asked for it. Even though it is
- * a bcrypt hash, exposing it to a frontend lets anyone who gets it attempt offline
- * cracking. Delete the `passwordHash` field from UserDetails/toUserDetails and the
- * `passwords(...)` part of USER_SELECT once you are done testing, and put real
- * authentication in front of these routes.
- */
-app.get(
-  "/api/users",
-  async (_req: Request, res: Response<UserDetails[] | ErrorResponse>) => {
-    const { data, error } = await supabase.from("users").select(USER_SELECT);
-
-    if (error) {
-      console.error(error);
-      return res.status(500).json({ error: "database error" });
-    }
-
-    const rows = data as unknown as UserRow[];
-    return res.json(rows.map(toUserDetails));
+  const hash = data?.passwords?.[0]?.password_hash;
+  if (!hash) {
+    return null;
   }
-);
-
-/** GET /api/users/:id  ->  one user */
-app.get(
-  "/api/users/:id",
-  async (req: Request<{ id: string }>, res: Response<UserDetails | ErrorResponse>) => {
-    const { id } = req.params;
-    if (!UUID_RE.test(id)) {
-      return res.status(400).json({ error: "id must be a valid UUID" });
-    }
-
-    const { data, error } = await supabase
-      .from("users")
-      .select(USER_SELECT)
-      .eq("user_id", id)
-      .maybeSingle();
-
-    if (error) {
-      console.error(error);
-      return res.status(500).json({ error: "database error" });
-    }
-    if (!data) {
-      return res.status(404).json({ error: "user not found" });
-    }
-
-    return res.json(toUserDetails(data as unknown as UserRow));
-  }
-);
-app.get(
-  "/api/users/username/:username",
-  async (req: Request<{ username: string }>, res: Response<UserDetails | ErrorResponse>) => {
-    const { username } = req.params;
-
-    const { data, error } = await supabase
-      .from("users")
-      .select(USER_SELECT)
-      .eq("username", username)
-      .maybeSingle();
-
-    if (error) {
-      console.error(error);
-      return res.status(500).json({ error: "database error" });
-    }
-    if (!data) {
-      return res.status(404).json({ error: "user not found" });
-    }
-
-    return res.json(toUserDetails(data as unknown as UserRow));
-  }
-);
-
-const PORT = Number(process.env.PORT) || 3000;
-app.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
-
-/*
-Test:
-curl -X POST http://localhost:3000/api/users \
-  -H "Content-Type: application/json" \
-  -d '{"username":"alice","password":"s3cret-pass","favoriteFoods":["pizza","sushi"],"allergies":["peanuts"]}'
-
-curl http://localhost:3000/api/users
-curl http://localhost:3000/api/users/<user-uuid>
-*/
+  const matches = await bcrypt.compare(password, hash);
+  return matches ? (data as { user_id: string }).user_id : null;
+}

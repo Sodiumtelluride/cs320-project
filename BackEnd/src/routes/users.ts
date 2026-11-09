@@ -1,23 +1,40 @@
 import { Router } from "express";
-import { getUsers, getUserById, createUser, login, logout } from "../handlers/users.js";
+import { authorizeUser, requireOwnership } from "../middleware/auth.js";
+import {
+  createUser,
+  deleteAllergy,
+  deleteFavoriteFood,
+  getUserById,
+  getUserByUsername,
+  listUsers,
+  replaceAllergies,
+  replaceFavoriteFoods,
+} from "../handlers/users.js";
 
 const router = Router();
 
-/*  ---------- Get requests ---------- */
-// /api/users
-router.get("/", getUsers);
+/* ---------- Account ---------- */
+// POST /api/users                       create (public, no session needed)
+router.post("/", createUser);
 
-// /api/users/:id
-router.get("/:id", getUserById);
+/* ---------- Read ---------- */
+// GET  /api/users                       every user (authenticated)
+router.get("/", authorizeUser, listUsers);
+// GET  /api/users/username/:username    look one up by name (own record only)
+router.get("/username/:username", authorizeUser, getUserByUsername);
+// GET  /api/users/:id                   one user (own record only)
+router.get("/:id", authorizeUser, requireOwnership, getUserById);
 
-/*  ---------- Post requests ---------- */
-// /api/users
-router.post('/create', createUser);
+/* ---------- Replace a whole list ---------- */
+// PUT  /api/users/:id/favorite-foods    { "favoriteFoods": ["pizza", ...] }
+router.put("/:id/favorite-foods", authorizeUser, requireOwnership, replaceFavoriteFoods);
+// PUT  /api/users/:id/allergies         { "allergies": ["peanuts", ...] }
+router.put("/:id/allergies", authorizeUser, requireOwnership, replaceAllergies);
 
-// /api/users/login
-router.post('/login', login);
-
-// /api/users/logout
-router.post('/login', logout);
+/* ---------- Remove one entry ---------- */
+// DELETE /api/users/:id/favorite-foods  { "food": "pizza" }
+router.delete("/:id/favorite-foods", authorizeUser, requireOwnership, deleteFavoriteFood);
+// DELETE /api/users/:id/allergies       { "allergy": "peanuts" }
+router.delete("/:id/allergies", authorizeUser, requireOwnership, deleteAllergy);
 
 export default router; // Make router visible
