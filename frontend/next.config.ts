@@ -6,7 +6,9 @@ const nextConfig: NextConfig = {
   agentRules: false,
   async rewrites() {
     const backend = process.env.BACKEND_URL || "http://127.0.0.1:3001";
-    return ["/api/auth/:path*", "/api/authenticate", "/api/users"].map(source => ({ source, destination: `${backend}${source}` }));
+    // /api/users/:path* is the profile-edit family (PUT/DELETE allergies and
+    // favorite foods); without it those calls 404 against Next's own router.
+    return ["/api/auth/:path*", "/api/authenticate", "/api/users", "/api/users/:path*"].map(source => ({ source, destination: `${backend}${source}` }));
   },
   turbopack: {
     root: process.cwd(),

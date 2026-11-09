@@ -129,11 +129,15 @@ async function authorizeUser(req: Request, res: Response, next: NextFunction) {
  * checks ownership after it finds the user.
  */
 function requireOwnership(req: Request, res: Response, next: NextFunction) {
-  const { id } = req.params;
+  // Express 5 types allow repeated params to arrive as an array; only a single
+  // string id can be ours.
+  const rawId = req.params.id;
+  const id = typeof rawId === "string" ? rawId : undefined;
   if (!id || !UUID_RE.test(id)) {
     return res.status(400).json({ error: "id must be a valid UUID" });
   }
-  if (id.toLowerCase() !== req.authUserId?.toLowerCase()) {
+  const authUserId = req.authUserId;
+  if (!authUserId || id.toLowerCase() !== authUserId.toLowerCase()) {
     return res.status(403).json({ error: "not authorized to access this user" });
   }
   next();
@@ -146,6 +150,25 @@ const USER_SELECT =
 export const toUserDetails = (row: UserRow): UserDetails => ({
   userId: row.user_id,
   username: row.username,
+  favoriteFoods: row.favorite_foods.map((f) => f.food_name),
+  allergies: row.allergies.map((a) => a.allergy_name),
+});
+
+/**
+ * Shape the browser consumes: GET /api/auth/me returns one of these wrapped in
+ * an array. `id` / `email` are the user_id / username columns renamed to the
+ * names frontend/lib/auth.ts expects, and hashes stay out of it.
+ */
+interface AuthMeUser {
+  id: string;
+  email: string;
+  favoriteFoods: string[];
+  allergies: string[];
+}
+
+const toAuthMeUser = (row: UserRow): AuthMeUser => ({
+  id: row.user_id,
+  email: row.username,
   favoriteFoods: row.favorite_foods.map((f) => f.food_name),
   allergies: row.allergies.map((a) => a.allergy_name),
 });
@@ -473,9 +496,47 @@ app.post(
   }
 );
 
-// POST /api/logout — destroys the session (clears the cookie)
+/**
+ * GET /api/auth/me — the frontend's "am I logged in?" endpoint.
+ *
+ * Session-only on purpose: unlike the /api/users routes it never falls back to
+ * credentials in the request body, so a guest gets an empty array (200) instead
+ * of a 400. The response is an array to match the adapter in
+ * frontend/lib/auth.ts; `email` is the users.username column, because the
+ * database has no email column.
+ */
+app.get(
+  "/api/auth/me",
+  async (req: Request, res: Response<AuthMeUser[] | ErrorResponse>) => {
+    res.set("Cache-Control", "no-store");
+    const sessionUserId = req.session?.userId;
+    if (!sessionUserId) {
+      return res.json([]);
+    }
+
+    const { data, error } = await supabase
+      .from("users")
+      .select(USER_SELECT)
+      .eq("user_id", sessionUserId)
+      .maybeSingle();
+
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: "database error" });
+    }
+    if (!data) {
+      // Session points at a user that no longer exists — treat as signed out.
+      return res.status(401).json([]);
+    }
+
+    const row = data as unknown as UserRow;
+    return res.json([toAuthMeUser(row)]);
+  }
+);
+
+// POST /api/auth/logout — destroys the session (clears the cookie)
 app.post(
-  "/api/logout",
+  "/api/auth/logout",
   (req: Request, res: Response<{ success: boolean }>) => {
     req.session.destroy(() => {
       res.clearCookie("connect.sid");
@@ -485,7 +546,7 @@ app.post(
 );
 
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 3001;
 if (!process.env.VITEST) {
   app.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
 }

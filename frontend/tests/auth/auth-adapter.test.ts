@@ -24,3 +24,24 @@ it("restores guests and calls server logout", async () => {
  await expect(authAdapter.getUser()).resolves.toBeNull(); await authAdapter.signOut();
  expect(fetcher).toHaveBeenLastCalledWith("/api/auth/logout", expect.objectContaining({ method: "POST", credentials: "include" }));
 });
+
+it("sends whole lists with PUT and single removals with DELETE to the user routes", async () => {
+ const fetcher = vi.fn().mockResolvedValue(Response.json({}, { status: 200 })); vi.stubGlobal("fetch", fetcher);
+ await authAdapter.saveAllergies("user-id", ["Peanuts", "Milk"]);
+ expect(fetcher).toHaveBeenLastCalledWith("/api/users/user-id/allergies", expect.objectContaining({ method: "PUT", credentials: "include", body: JSON.stringify({ allergies: ["Peanuts", "Milk"] }) }));
+ await authAdapter.saveFavoriteFoods("user-id", ["Pizza"]);
+ expect(fetcher).toHaveBeenLastCalledWith("/api/users/user-id/favorite-foods", expect.objectContaining({ method: "PUT", body: JSON.stringify({ favoriteFoods: ["Pizza"] }) }));
+ await authAdapter.removeAllergy("user-id", "Milk");
+ expect(fetcher).toHaveBeenLastCalledWith("/api/users/user-id/allergies", expect.objectContaining({ method: "DELETE", body: JSON.stringify({ allergy: "Milk" }) }));
+ await authAdapter.removeFavoriteFood("user-id", "Pizza");
+ expect(fetcher).toHaveBeenLastCalledWith("/api/users/user-id/favorite-foods", expect.objectContaining({ method: "DELETE", body: JSON.stringify({ food: "Pizza" }) }));
+});
+
+it("reports a rejected profile edit with a user-safe message", async () => {
+ vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: "not authorized to access this user" }, { status: 403 })));
+ await expect(authAdapter.saveAllergies("user-id", ["Peanuts"])).rejects.toThrow("Your session expired. Please log in again.");
+ vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: "allergies must be an array of strings" }, { status: 400 })));
+ await expect(authAdapter.saveAllergies("user-id", ["Peanuts"])).rejects.toThrow("That entry was rejected. Please check it and try again.");
+ vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+ await expect(authAdapter.removeFavoriteFood("user-id", "Pizza")).rejects.toThrow("We couldn’t reach your account. Please try again.");
+});
