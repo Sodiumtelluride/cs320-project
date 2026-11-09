@@ -25,7 +25,8 @@ export function AuthProvider({ children, adapter = authAdapter }: {
   children: ReactNode;
   adapter?: AuthAdapter;
 }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [users, setUsers] = useState<AuthUser[]>([]);
+  const user = users[0] ?? null;
   const [loading, setLoading] = useState(true);
   const [sessionError, setSessionError] = useState("");
   const [mode, setMode] = useState<AuthMode | null>(null);
@@ -35,7 +36,7 @@ export function AuthProvider({ children, adapter = authAdapter }: {
   useEffect(() => {
     let active = true;
     adapter.getUser().then(
-      (currentUser) => { if (active) setUser(currentUser); },
+      (currentUser) => { if (active) setUsers(currentUser ? [currentUser] : []); },
       () => { if (active) setSessionError("We couldn’t check your account. You can keep browsing as a guest."); }
     ).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -69,20 +70,20 @@ export function AuthProvider({ children, adapter = authAdapter }: {
       async signIn(input) {
         if (loading) throw new Error("Please wait while we check your account.");
         const currentUser = await adapter.signIn(input);
-        setUser(currentUser);
+        setUsers(currentUser ? [currentUser] : []);
         setSessionError("");
         return currentUser;
       },
       async signUp(input) {
         if (loading) throw new Error("Please wait while we check your account.");
         const result = await adapter.signUp(input);
-        if (result.status === "signed-in") setUser(result.user);
+        if (result.status === "signed-in") setUsers([result.user]);
         setSessionError("");
         return result;
       },
       async signOut() {
         await adapter.signOut();
-        setUser(null);
+        setUsers([]);
       },
     }}>
       {children}

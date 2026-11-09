@@ -2,6 +2,8 @@ import express, { type Request, type Response } from "express";
 import * as bcrypt from "bcrypt";
 import {supabase} from "./supabase.js"
 
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) throw new Error("Missing SUPABASE_URL or SUPABASE_KEY in environment");
+
 // npm install express @supabase/supabase-js bcrypt dotenv
 // npm install -D typescript tsx @types/express @types/node @types/bcrypt
 // ---------- Types ----------
@@ -222,8 +224,7 @@ app.get(
   }
 );
 
-const PORT = Number(process.env.PORT) || 3000;
-app.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
+// Imported by createApp for registration; the main entry point owns the server.
 
 /*
 Test:
