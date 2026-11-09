@@ -1,0 +1,104 @@
+## Task Title: Setup local supabase docker database
+
+## Main Takeaways
+
+Implemented a script that will automatically setup a local supabase db using a docker image by running npm run setup:test-db
+The script allows us to test specific test cases and db functions locally so it doesn't affect the production db or other 
+teammates. Using this script, anyone on the team just needs to install npm, find the local SUPABASE_URL/KEY for their local db
+
+
+## Resource Usage
+
+Tool and Model(s) Used: ChatGPT -6 (OpenAI)
+
+Tokens Used & Dollar Equivalent: Estimated 14k tokens which is eqivalent to $0.06
+
+## Chat Logs
+
+User:
+
+Files attached:
+
+schema.sql
+
+package.json
+
+config.toml
+
+I am in the middle of setting up a docker container for a local version of the supabase db we are using so that we can use it for local testing especially with teammates. Take a look at these files and come up with a way we can use the schema.sql file and all the necessary set up needed so that teammates can basically run a script to set up the local db in a docker image on their end easily
+
+Assistant:
+
+I've reviewed your schema.sql, package.json, and config.toml. I recommend setting up one npm command that starts local Supabase through Docker and imports your schema if it hasn't been imported already.
+
+This will let each teammate create their own local Supabase environment using the same project files, without touching your production database or adding test-only migrations.
+
+Your project already has most of what we need. The schema defines 13 tables, relationships, constraints, and a user-creation database function. The package.json already includes the Supabase CLI, Vitest, and the Supabase JavaScript client. The configuration uses PostgreSQL 17 and defines local API, database, and Studio ports.
+
+I recommend creating BackEnd/scripts/setupTestDB.mjs and keeping schema.sql in BackEnd/tests/db/. The script would locate the local Supabase container using the project ID in config.toml, check for the expected tables, and import the schema only when appropriate.
+
+It should stop if only some project tables exist, rather than risk overwriting an incomplete database. The SQL import should also run in a transaction so failed imports can be rolled back.
+
+Add the following npm script to package.json:
+
+"setup:test-db": "supabase start && node scripts/setupTestDB.mjs"
+
+Teammates would then run:
+
+cd BackEnd
+npm install
+npm run setup:test-db
+
+Once local Supabase is running, teammates can use npx supabase status to obtain their local API URL and key and configure .env.test.
+
+The setup files should be committed to GitHub, but local environment files containing credentials should not be committed.
+
+The script will need to be updated if the database schema changes, and the initial setup still needs to be tested against Docker.
+
+User:
+
+Build the script
+
+Assistant:
+
+I've built the local Supabase Docker setup script using your actual schema.sql, package.json, and config.toml.
+
+The generated setup package includes:
+
+setupTestDB.mjs
+
+schema.sql
+
+Supabase configuration
+
+Updated package.json
+
+README setup instructions
+
+The updated package.json includes:
+
+"setup:test-db": "supabase start && node scripts/setupTestDB.mjs"
+
+From the BackEnd directory, run:
+
+npm run setup:test-db
+
+The script automatically starts local Supabase through Docker, finds the PostgreSQL container, checks whether the 13 project tables exist, imports schema.sql if needed, and verifies successful table creation.
+
+If all tables already exist, the script skips importing them. If only some exist, it stops to avoid overwriting a partially initialized database.
+
+Teammates can use the same setup files after pulling the repository. They only need Docker Desktop, Node.js, and the project's dependencies.
+
+After setup, they can run npx supabase status to find their local Supabase URL and credentials for .env.test.
+
+The script targets the local Docker container and does not connect to the hosted production database. The import also runs in a transaction to roll back changes if an SQL statement fails.
+
+The JavaScript syntax and package.json formatting were checked, but the complete setup was not executed against the user's Docker environment.
+
+The next step is to configure .env.test
+
+Generated Code:
+
+setupTestDB.mjs — Node.js script for initializing the local Supabase test database.
+
+The generated script was provided separately as a code artifact.
