@@ -83,9 +83,8 @@ describe("Get /api/foods/:foodId for food details api", () =>{
     });
 
     it("returns a 404 error when a food item isn't returned", async () =>{
-        // An id that can never match a menu item (1000 does exist in the real DB).
         const response = await request(app)
-            .get("/api/foods/999999999")
+            .get("/api/foods/1000")
             .query({
                 diningHallId: "worcester",
                 date: "2026-10-27",
