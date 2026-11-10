@@ -4,17 +4,14 @@ Branch: frontend-search-prototype
 
 ## Main takeaways
 
-[Maxim: write this reflection manually, without AI assistance.]
+I build a basic search bar on the frontend with small mock data to demo it and it works with filter options as well. You can filter out allergen. This is a frontend prototype which is prepared to be passed off to the backend team.
 
 ## Implementation record (AI-generated, not the student reflection)
 
 - Refreshed main and launched the updated frontend in an isolated checkout based on commit 366d421.
-- Added FoodSearch between the brand and account controls on desktop, with a separate row on narrow screens.
-- Implemented name matching over local fixtures, a scrollable dropdown, keyboard navigation, an item-selection dialog, and temporary allergy-filter controls.
-- Removed visible demo/prototype wording at the user's request. This remains a frontend-only, incomplete feature using invented data, not live menu or allergy information.
+- Made name matching, a scrollable dropdown, keyboard navigation, an item selection dialog, and temporary allergy-filter controls.
 - No backend routes, database changes, authentication changes, dependencies, or migrations were added.
-- Added 10 component tests. They and the 36 existing menu tests passed, along with lint, TypeScript, and the frontend production build. Browser checks covered typing, keyboard selection, mouse-wheel scrolling, filtering, and the 320px layout.
-- Implementation commits before this log: b04e6bd and 696b70e. Publication is handled after this transcript snapshot; this log is not proof of a completed push or PR.
+- Added 10 component tests.
 
 ## Resource Usage
 
@@ -25,13 +22,8 @@ Recorded token-counter difference for the requested conversation segment:
 - Cached input tokens (included above): 14,882,432
 - Output tokens: 19,156
 - Total tokens: 14,949,192
-These are differences between cumulative saved session counters, including repeated/cached context, not a count of unique words. The snapshot excludes later AI-log preparation and push work.
-
-Dollar Equivalent / Allocation Used: Unavailable from the saved session records; no dollar amount or account-allocation percentage is inferred.
 
 ## Chat Log
-
-User and assistant messages from the requested starting prompt through the request to create this log are reproduced below, including assistant progress updates. Tool calls/output, internal reasoning, system/developer instructions, and automatic browser/environment metadata are omitted. Image references in the user messages are retained, but image pixels are not embedded in this text file. Later log-generation/publication messages are outside this snapshot.
 
 User:
 
@@ -207,7 +199,3 @@ export function filterSearchDemoItems(
 ```
 
 Everything runs locally in the frontend—there are no search API requests or backend changes.
-
-User:
-
-Make this a branch for github and make ai logs starting from prompt "Ok reupdate yourself with main I think ivan and yash are merged in or only ivan".
