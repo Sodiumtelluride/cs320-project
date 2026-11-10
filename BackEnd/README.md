@@ -1,13 +1,30 @@
-# Menu refresh
+# Backend Local DB Setup
 
-Apply the `menu_snapshots` migration to the intended Supabase database before enabling live menus. Configure `SUPABASE_URL` and `SUPABASE_KEY` for a service-role client in the refresh process; keep the service key on the server. The API may use a read-only key. Existing normalized menu tables are not modified or cleaned by this migration and legacy endpoints continue to use them.
+This project uses Supabase as its database. For integration testing, we use a local Supabase instance running through Docker. The local database schema is created using the existing Supabase migrations, so there is no need to manually import a separate SQL schema file. 
 
-Build with `npm run build`, then run `npm run refresh:menus` for a single refresh. Run `npm run refresh:menus:watch` as **one supervised worker** for continuous refresh. The worker starts immediately and repeats every 60 minutes by default; `MENU_REFRESH_MINUTES` can set an interval of at least five minutes. It logs individual failures, continues other locations and dates, and prevents overlapping runs within the process. Monitor logs and process health. Do not run multiple workers against the same database without external leader election.
+Before setting up the local database make sure to install docker desktop and it in the terminal
 
-Each successful feed replaces one location/day snapshot in one upsert, including menus and food details. FoodPro's successful empty array means no menu was published for that selection; it becomes an empty snapshot. Failed or malformed responses do not overwrite the last good snapshot. Today is processed before the following 13 days, with four concurrent upstream requests. The API returns 404 when no snapshot is available, and includes the last successful update time. Old snapshots remain stored; establish an appropriate retention policy before long-term deployment.
+## Steps to Run Integration Tests
 
-The configured foodpro feeds cover the commons and frontend locations with known machine-readable feed IDs. Argo Tea and Terrace do not have known supported foodpro IDs in the current scraper, so they cannot be refreshed by this worker. Other image/external menu formats require separate parsers. Snapshot data is public; unknown allergen information remains unknown.
+After installing node/npm, you should run `npm run setup:test-db` which starts the local Supabase database. 
 
-For local development without a snapshot database, `LOCAL_MENU_PREVIEW=1` enables a temporary in-memory snapshot store. It fetches real upstream data, warms today's supported locations in the background, and reuses in-flight and completed requests for 30 minutes. The data disappears when the server stops. This mode is for local preview only; it does not populate the production snapshot table.
+You should then run `npx supabase status` to find the Supabase URL and Supabase Key. When running that you should see a Supabase URL like `http://127.0.0.1:54321` and a local publishable key.
 
-In PowerShell, run `npm run build`, then set `$env:LOCAL_MENU_PREVIEW='1'`, `$env:SESSION_SECRET='local-development-only'`, `$env:SUPABASE_URL='https://example.invalid'`, and `$env:SUPABASE_KEY='local-preview'` before `npm start`. The placeholder Supabase settings satisfy the existing authentication module but do not connect to a real database. In another terminal under `frontend`, set `$env:NEXT_PUBLIC_MENU_API_BASE_URL='/api'` before `npm run dev`. Configure the normal backend separately to test login.
+
+Then, create/edit the `.env.test` file with:
+
+`SUPABASE_URL=http://127.0.0.1:54321`
+
+
+`SUPABASE_KEY=<your-local-publishable-key>`
+
+Once you have setup your .env.test file you should be all set and can run your integration tests. Some sample calls for current integration tests would be:
+
+`node --env-file=.env.test ./node_modules/vitest/vitest.mjs run src/tests/menus.integration.test.ts`
+
+`node --env-file=.env.test ./node_modules/vitest/vitest.mjs run src/db/tests/menuData.integration.test.ts`
+
+`node --env-file=.env.test ./node_modules/vitest/vitest.mjs run src/tests/users.integration.test.ts`
+
+
+The only thing you have to be careful for is to make sure that your migration files are up-to-date before running tests
