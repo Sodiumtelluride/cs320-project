@@ -52,7 +52,7 @@ describe("Menu Population Database Integration Tests", () =>{
         }
 
         expect(menuItem.name).toBe("Test Breaded Chicken");
-        expect(menuItem.calories).toBe(500);
+        expect(menuItem.calories).toBe("500");
         expect(menuItem.protein).toBe("30g");
 
         await insertFoodInfoBatch([
