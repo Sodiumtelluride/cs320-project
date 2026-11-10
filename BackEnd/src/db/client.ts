@@ -13,6 +13,13 @@ import { supabase } from "./supabase.js";
 //   users(user_id, username) + passwords(password_hash, user_id)
 //   + favorite_foods(food_name, user_id) + allergies(allergy_name, user_id)
 // There is no email column — "email" in the API is just the username.
+//
+// Access control: SUPABASE_KEY is a publishable (anon) key, and anon has SELECT on
+// these tables but no direct INSERT/UPDATE/DELETE. Every account write therefore
+// goes through a SECURITY DEFINER RPC, and the two profile-write RPCs take the
+// caller's id as p_caller_id so require_profile_owner() in the database can reject
+// a caller who is not the profile's owner
+// (supabase/migrations/20261110000000_verify_profile_ownership.sql).
 
 // ---------- Types ----------
 
@@ -48,11 +55,6 @@ export interface UserDetails {
   username: string;
   favoriteFoods: string[];
   allergies: string[];
-}
-
-export interface UpdateUserBody {
-  favoriteFoods?: unknown;
-  allergies?: unknown;
 }
 
 export interface AuthBody {
