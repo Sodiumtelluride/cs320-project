@@ -4,9 +4,9 @@ import {
   createUser,
   deleteAllergy,
   deleteFavoriteFood,
+  getOwnProfile,
   getUserById,
   getUserByUsername,
-  listUsers,
   replaceAllergies,
   replaceFavoriteFoods,
 } from "../handlers/users.js";
@@ -18,8 +18,8 @@ const router = Router();
 router.post("/", createUser);
 
 /* ---------- Read ---------- */
-// GET  /api/users                       every user (authenticated)
-router.get("/", authorizeUser, listUsers);
+// GET  /api/users                       the caller's own account (authenticated)
+router.get("/", authorizeUser, getOwnProfile);
 // GET  /api/users/username/:username    look one up by name (own record only)
 router.get("/username/:username", authorizeUser, getUserByUsername);
 // GET  /api/users/:id                   one user (own record only)
@@ -36,5 +36,9 @@ router.put("/:id/allergies", authorizeUser, requireOwnership, replaceAllergies);
 router.delete("/:id/favorite-foods", authorizeUser, requireOwnership, deleteFavoriteFood);
 // DELETE /api/users/:id/allergies       { "allergy": "peanuts" }
 router.delete("/:id/allergies", authorizeUser, requireOwnership, deleteAllergy);
+
+// The writes above hand the session-proved id to the RPC as p_caller_id, so
+// require_profile_owner() in the database repeats the ownership check even if a
+// route is mounted without requireOwnership.
 
 export default router; // Make router visible
