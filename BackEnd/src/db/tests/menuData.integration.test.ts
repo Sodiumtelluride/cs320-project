@@ -13,8 +13,8 @@ import {
 describe("Menu Population Database Integration Tests", () =>{
 
     let menuItemId: number;
-
     let mealId: number;
+    let locationId: number;
 
     it("should insert one meal, and all of its corresponding relationships in the db", async() =>{
 
@@ -41,6 +41,20 @@ describe("Menu Population Database Integration Tests", () =>{
         menuItemId = insertedItems[0]!.id;
         expect(menuItemId).toBeGreaterThan(0);
 
+        const {data: menuItem, error: menuItemError} = await supabase
+            .from("menu_items")
+            .select("name,calories,protein")
+            .eq("id", menuItemId)
+            .single();
+
+        if(menuItemError){
+            throw menuItemError;
+        }
+
+        expect(menuItem.name).toBe("Test Breaded Chicken");
+        expect(menuItem.calories).toBe(500);
+        expect(menuItem.protein).toBe("30g");
+
         await insertFoodInfoBatch([
             {
                 menuItemId,
@@ -50,8 +64,11 @@ describe("Menu Population Database Integration Tests", () =>{
 
         const { data: location, error: locationError} = await supabase
             .from("locations")
+            .insert({
+                name: "test-berkshire",
+                location_type: "dining_hall"
+            })
             .select("id")
-            .eq("id", 2)
             .single();
         
         if(locationError){
@@ -59,10 +76,11 @@ describe("Menu Population Database Integration Tests", () =>{
         }
 
         expect(location).not.toBeNull();
+        locationId = location.id;
     
         const insertedMeals = await insertMeals([
             {
-                location_id: location!.id,
+                location_id: locationId,
                 date: "2026-11-05",
                 meal_type: "test-lunch"
             }
@@ -172,6 +190,12 @@ describe("Menu Population Database Integration Tests", () =>{
                 .from("menu_items")
                 .delete()
                 .eq("id", menuItemId);
+        }
+        if(locationId){
+            await supabase
+                .from("locations")
+                .delete()
+                .eq("id", locationId);
         }
         await supabase 
             .from("ingredients")
