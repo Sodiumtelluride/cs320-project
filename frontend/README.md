@@ -1,15 +1,19 @@
 # UMass Dining frontend
 
-Next.js frontend with a four-location dining hall directory, menu browser, food details, and an About page. The directory is the home page. The interface uses the shared maroon theme, buttons, and dialogs.
-
-Validated with Node.js 24.19.0.
+The home page lists four dining halls and the Grab ’n Go and Around Campus categories. Location menus use the shared maroon theme, buttons, dialogs, and nutrition components. The About page remains at `/about`.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Open `http://localhost:3000`. Select a dining hall to open its menu. The About page is available at `/about`.
+Open the address printed by Next.js, normally `http://localhost:3000`. Run the backend with the team's configuration. Menu requests use `/api/menus?location=<id>&date=<YYYY-MM-DD>` through the existing Next.js rewrite. `BACKEND_URL` selects the Express server; the rewrite defaults to `http://127.0.0.1:3001`.
+
+The menu page uses the shared day-response loader for both dining halls and campus locations. Meal changes and food details reuse its cache. The rolling calendar enables today and the next thirteen days. Argo Tea has no date selector and links to its official menu. Published data is not replaced with sample food when a request fails.
+
+Authentication and profile integration are documented in [docs/login-request.md](docs/login-request.md). The menu request and date behavior are documented in [docs/menu-api.md](docs/menu-api.md).
+
+## Checks
 
 ```sh
 npm run typecheck
@@ -24,12 +28,9 @@ The menu browser defaults to the included sample API — no external backend or 
 
 Set `NEXT_PUBLIC_MENU_API_BASE_URL=/api` and `BACKEND_URL` to the Express server to enable live snapshots through the same-origin rewrite. The browser starts loading today's location snapshots after rendering, then the following 13 days, with four background requests at a time. On browsers that report data saver or a 2G connection, only today is preloaded; other dates still load on demand. A selected location/date starts immediately and shares any existing request. Results are held in memory for five minutes. The current scraper fetches today and future dates; other dates are fetched on demand if a snapshot exists. Special source menus remain unavailable. See `BackEnd/README.md` for migration and refresh setup.
 
-## Browser tests (Playwright)
-
-Run from `frontend/` using Node.js 24:
+## Browser tests
 
 ```sh
-npm ci
 npx playwright install chromium
 npm run test:e2e
 ```
@@ -47,9 +48,6 @@ The same 15 scenarios — ten menu, five authentication — run in Chromium at d
 Tests pin menu dates and use local sample data. The two failure/retry scenarios intercept one API request with a 503, then allow the retry to reach the actual sample endpoint. Authentication scenarios stub the account endpoints (`/api/authenticate`, `/api/auth/me`, `/api/auth/logout`, and `POST /api/users` with a 409 taken email), so they check how the interface reacts to each response and do not prove a live login; `BackEnd/src/tests/users.integration.test.ts` covers the live-database side. A mobile viewport is not a physical-device or Safari test.
 
 ```sh
-npm run test:e2e:headed  # Watch the browser clicks
-npm run test:e2e:ui      # Interactive runner
+npm run test:e2e:headed
 npx playwright show-report
 ```
-
-Failures retain a screenshot and trace in `test-results/`. Browser output, build output, and the HTML report are ignored by Git. Existing component tests remain available through `npm run test:menus`.

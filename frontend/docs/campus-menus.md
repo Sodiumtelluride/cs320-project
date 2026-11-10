@@ -4,18 +4,11 @@ Home and `/menus` retain the four dining halls and add two category cards. `/men
 
 ## Data loading
 
-The existing `NEXT_PUBLIC_MENU_API_BASE_URL` setting selects the backend for both dining halls and campus locations. The service must support the menu contract in [menu-api.md](menu-api.md):
+All dining halls, Grab ’n Go locations, and cafés use the shared data source for `GET /api/menus?location=<id>&date=<YYYY-MM-DD>`. The response contains the full day’s `menus` and `foods`, so meal changes and food details reuse the loaded response. The default page no longer selects the pending HTTP adapter for campus locations.
 
-| Request | Parameters |
-| --- | --- |
-| `GET <base>/menus` | `diningHallId`, `date`, `meal` |
-| `GET <base>/foods/<foodId>` | `diningHallId`, `date`, `meal` |
+The service returns the published database data. An empty day is shown as unpublished, and an unsuccessful request offers a retry without substituting sample food. Argo Tea has a today-only view and links to its official menu; this UI change does not add an automated feed for it.
 
-`diningHallId` is retained for compatibility and identifies any dining location. The identifiers below are frontend configuration; confirm or map them to the backend's identifiers before connecting the service. `daily-offerings` extends the existing meal identifiers for café menus. Availability is configurable per location and should be updated when the backend's supported sections are confirmed.
-
-Without an API base URL, new locations request `/api/menu-pending/menus`. It validates the selection and returns the selected identifiers with `stations: []` and `updatedAt: null`. It supplies no food, price, nutrition or allergen records. The corresponding food-details endpoint returns 404. Existing dining hall demo routes are unchanged. A failed live request remains an error and does not fall back to sample data.
-
-Menu and food-detail responses retain the existing fields. A food may additionally include `price`, a display string such as a formatted amount, or null. Omit it when unavailable. All food rows remain selectable and use the existing food-details dialog, nutrition label and dietary-tag components.
+Locations use the rolling campus-date window described in [menu-api.md](menu-api.md). The existing price, tag, and food-details components are retained. A price is displayed only when provided in the response.
 
 ## Locations and menu sections
 

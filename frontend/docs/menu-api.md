@@ -1,109 +1,23 @@
-# Menu API contract
+# Menu API
 
-The live UI uses `GET /menu-snapshots?location=<id>&date=<YYYY-MM-DD>` under `NEXT_PUBLIC_MENU_API_BASE_URL`. A response contains `{ location, date, menus, foods, updatedAt }`: `menus` maps meal IDs to stations and their food summaries, while `foods` maps each food ID to its full details. An empty `menus` object means the source did not publish a menu; a missing snapshot is a 404. The browser validates the response and caches it by location and date for five minutes, sharing pending requests. It preloads today for supported locations, followed by nearby future dates; on data-saver and 2G connections it preloads only today. See the backend README for migration and refresh-worker setup.
+The menu page uses the shared data source in `lib/menus/snapshot-cache.ts` for all dining locations. Its request is `GET /api/menus?location=<id>&date=<YYYY-MM-DD>`. The Next.js rewrite forwards the request to the Express backend. The page route `/menus?hall=<id>` and the backend API `/api/menus` are separate addresses.
 
-The sections below describe the retained individual menu and food endpoints and their original frontend contract. They are not used by the live snapshot-backed UI.
+The combined response contains `{ location, date, menus, foods, updatedAt }`. `menus` maps meal identifiers to stations and food summaries. `foods` maps food identifiers to ingredients, reported allergens, nutrition, and other details. The menu list and food dialog read this same response through `getMenu` and `getFoodDetails`; opening a food does not require a separate food endpoint while the cached day remains valid.
 
-The menu UI consumes `MenuDataSource` from `lib/menus/types.ts`. The HTTP implementation accepts a base URL, request credentials, and an optional fetch implementation. The included fixture routes use the same response contract.
+The shared loader validates the response, shares in-progress requests, and retains successful results for five minutes. The existing preloader loads today and tomorrow on normal connections and today only on data-saving or slow connections. Other selectable dates load on demand. This UI change does not add or replace the loader, preloader, or backend routes.
 
-## Navigation
+## Navigation and dates
 
-The home route `/` lists the configured dining halls as cards. `/menus` shows the same location directory until a hall is selected. A selected menu uses `/menus?hall=<id>&date=<YYYY-MM-DD>&meal=<meal>`; the date and meal are optional on entry. The About page remains at `/about`.
+The home page lists dining halls and the Grab ’n Go and Around Campus categories. A location opens at `/menus?hall=<id>&date=<YYYY-MM-DD>&meal=<meal>`. Selection changes update that address. The About page remains at `/about`.
 
-`DiningHallCards` renders links on the directory and selection buttons inside `Menus`. Location, date, and meal changes update the query parameters without adding a browser-history entry. The menu data source still receives `diningHallId`, `date`, and `meal`; the backend contract is unchanged.
+The calendar enables today and the next thirteen days in `America/New_York`. Only months intersecting that range are displayed. Dates outside the range are disabled; an invalid or out-of-range entry date resolves to today. The range is recalculated while the page is open. Argo Tea uses today only, omits the calendar controls, and links to its official menu.
 
-## Requests
+## Rendering
 
-| Method | Relative path | Query parameters |
-| --- | --- | --- |
-| GET | `/menus` | `diningHallId`, `date`, `meal` |
-| GET | `/foods/:foodId` | `diningHallId`, `date`, `meal` |
+`Menus` accepts configured locations, a `MenuDataSource`, initial selections, and a selection callback. `MenuPage` supplies the shared API source by default; tests may inject another source without changing production configuration.
 
-`date` is a campus calendar date in `YYYY-MM-DD` format. Supported meal identifiers are `breakfast`, `lunch`, `dinner`, `grab-n-go`, and `late-night`. Hall and food identifiers are opaque strings. The frontend supplies the selected hall, date, and meal with both requests.
+Dietary tags, reported allergens, ingredients, serving size, nutrition, and optional prices are displayed only as provided. Missing values remain unknown. The nutrition label retains Total Sugars and omits Added Sugars because the scraped source does not provide that field. The backend response format is unchanged.
 
-The fixture base path is `/api/menu-demo`. `NEXT_PUBLIC_MENU_API_BASE_URL` selects the future service base path, such as `http://localhost:3001/api`. No fallback to fixture data occurs after a live request fails.
+## Verification
 
-The HTTP adapter includes credentials by default to support the planned session-based backend. Cross-origin deployments require the backend to permit the frontend origin and credentialed requests. The adapter's `credentials` option can be changed for public, credential-free endpoints.
-
-## Menu response
-
-```json
-{
-  "diningHallId": "berkshire",
-  "date": "2026-10-19",
-  "meal": "lunch",
-  "updatedAt": "2026-10-19T14:00:00Z",
-  "stations": [
-    {
-      "id": "soups",
-      "name": "Soups",
-      "foods": [
-        {
-          "id": "cheddar-bisque",
-          "name": "Aged Cheddar & Cauliflower Bisque",
-          "dietaryTags": ["halal", "vegetarian"],
-          "carbonRating": "A"
-        }
-      ]
-    }
-  ]
-}
-```
-
-An unpublished selection returns a successful response with `stations: []`. Station IDs must be unique within a menu. Food IDs must be unique within a station; a recipe may occur at more than one station. The response selection must match the request.
-
-## Food response
-
-```json
-{
-  "id": "cheddar-bisque",
-  "name": "Aged Cheddar & Cauliflower Bisque",
-  "dietaryTags": ["halal", "vegetarian"],
-  "carbonRating": "A",
-  "nutrition": {
-    "servingSize": "5 oz",
-    "calories": 199,
-    "caloriesFromFat": 148,
-    "totalFat": { "amount": 16.4, "unit": "g", "dailyValue": 21 },
-    "sodium": { "amount": 521.5, "unit": "mg", "dailyValue": 23 }
-  },
-  "healthfulnessScore": 2,
-  "allergens": ["Milk", "Eggs", "Wheat", "Soy"],
-  "ingredients": "Cauliflower, cream, cheddar cheese, vegetable stock, onions, and seasoning.",
-  "sourceUrl": null,
-  "updatedAt": "2026-10-19T14:00:00Z"
-}
-```
-
-These examples are development fixtures, not verified recipes or current nutrition and allergen information.
-
-| Field | Contract |
-| --- | --- |
-| `dietaryTags` | Any combination of `vegetarian`, `local`, `halal`, and `plant-based`; omitted or null becomes an empty list |
-| `carbonRating` | `A`, `B`, `C`, `D`, `E`, or null |
-| `nutrition` | Object or null; individual fields may be omitted or null |
-| Nutrient amount | Nonnegative number with unit `g`, `mg`, or `mcg` |
-| `dailyValue` | Nonnegative percentage number or null; the frontend does not calculate it |
-| `healthfulnessScore` | Number from 0 to 7, or null; it is not a percentage |
-| `allergens` | String array; null or omitted means unknown; an empty array means none reported by the source |
-| `ingredients` | Plain text or null |
-| `sourceUrl` | Absolute HTTP(S) URL or null |
-| `updatedAt` | ISO timestamp with timezone, or null |
-
-Nutrition fields include `servingSize`, `calories`, `caloriesFromFat`, `totalFat`, `saturatedFat`, `transFat`, `cholesterol`, `sodium`, `totalCarbohydrate`, `dietaryFiber`, `totalSugars`, `addedSugars`, and `protein`. Nutrient fields use the `{ amount, unit, dailyValue }` shape.
-
-Missing values remain unknown. Zero is a valid reported value. Dietary tags, allergen claims, healthfulness, and carbon ratings are never inferred from the food name or ingredients.
-
-## Integration
-
-The page uses the root-based `@/*` alias and existing `Button`, `Dialog`, `SiteHeader`, `BackButton`, `cn`, and global theme. It introduces no additional UI dependencies.
-
-`Menus` accepts `diningHalls`, `dataSource`, `initialHallId`, `initialDate`, `initialMeal`, `onSelectionChange`, and `className`. Data sources are created in the client composition rather than passed as functions across a server/client boundary. The selection callback runs when a visitor changes a control.
-
-The hall IDs and meal availability in `lib/menus/dining-halls.ts` are fixture configuration. They must be replaced with backend identifiers and availability before connecting live data. If the final service uses different paths or response fields, normalization belongs in `http-menu-data-source.ts` and `validation.ts`; the menu components consume the stable frontend types.
-
-Fixture routes are read-only, validate query parameters, and return 400 for malformed selections or 404 for unknown fixtures. Unsuccessful requests, malformed responses, and mismatched identifiers produce error states with retry actions. Superseded requests are cancelled and late responses are ignored.
-
-## Reference assets
-
-Menu layout and food-detail fields follow the [Berkshire menu reference](https://www.umassdining.com/locations-menus/berkshire/menu). The circular tag PNGs under `public/menu-tags/` are copies of the reference site's images from `https://umassdining.com/sites/default/files/legends/`: `icon-hal-v2.png`, `icon-veg-v2.png`, `icon-loc-v2.png`, `icon-plant-v2.png`, and `icon-cr-a-v2.png` through `icon-cr-e-v2.png`. Their symbols and colors are preserved; the surrounding interface uses the project theme.
+Menu component tests exercise calendar boundaries, month and year transitions, date changes, the food dialog, and combined-response reuse. Browser tests intercept `/api/menus` with test-only responses and check navigation, retries, nutrition, and café loading. These tests do not verify a live Supabase database.
