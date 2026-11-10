@@ -4,7 +4,7 @@ Frontend-only component in `components/search/food-search.tsx`, placed between t
 
 - Filters the invented local fixtures in `search-demo-data.ts` by food name.
 - Results support mouse/touch selection, scrolling, Up/Down, Home/End, Enter, Escape, and normal Tab navigation.
-- Selecting a result opens a clearly labeled preview dialog, not a live menu route.
+- Selecting a result opens a local item dialog, not a live menu route. Demo/preview labels are intentionally omitted from the visible UI.
 - The filter dialog excludes selected reported allergens; unknown-allergen items are also hidden while filters are active. Clear filters restores the list.
 - Filters are temporary local component state. No profile reads/writes, search API, new routes, dependencies, migrations, or backend changes are included.
 

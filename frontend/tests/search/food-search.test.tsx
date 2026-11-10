@@ -14,12 +14,12 @@ function openSearch(query = "") {
 }
 
 describe("Frontend-only food search", () => {
-  it("shows labeled sample results without making a network request", () => {
+  it("shows results without demo labels or a network request", () => {
     const fetcher = vi.fn();
     vi.stubGlobal("fetch", fetcher);
     openSearch();
     expect(screen.getAllByRole("option")).toHaveLength(SEARCH_DEMO_ITEMS.length);
-    expect(screen.getByText(/Sample items, not live menus/)).toBeTruthy();
+    expect(screen.queryByText(/demo|prototype|sample|preview/i)).toBeNull();
     expect(fetcher).not.toHaveBeenCalled();
   });
 
@@ -51,7 +51,7 @@ describe("Frontend-only food search", () => {
     fireEvent.keyDown(input, { key: "ArrowDown" });
     fireEvent.keyDown(input, { key: "Enter" });
     const dialog = await screen.findByRole("dialog", { name: "Grilled Salmon" });
-    expect(within(dialog).getByText(/No request was sent/)).toBeTruthy();
+    expect(within(dialog).getByText("Berkshire")).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Back to search" }));
     await waitFor(() => expect(document.activeElement).toBe(input));
   });
@@ -67,7 +67,7 @@ describe("Frontend-only food search", () => {
     fireEvent.keyDown(input, { key: "ArrowDown" });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(screen.queryAllByRole("option")).toHaveLength(0);
-    expect(screen.getByText(/No sample items match/)).toBeTruthy();
+    expect(screen.getByText(/No items match/)).toBeTruthy();
     expect(input.getAttribute("aria-activedescendant")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
   });

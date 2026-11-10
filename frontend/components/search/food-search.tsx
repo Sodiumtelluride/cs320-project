@@ -79,10 +79,10 @@ export function FoodSearch() {
             aria-activedescendant={open && active ? optionId(active) : undefined} aria-describedby={`${id}-hint`}
             onFocus={() => setOpen(true)} onKeyDown={navigate}
             onChange={(event) => { setQuery(event.target.value); setOpen(true); setActiveIndex(-1); }} />
-          {query ? <button type="button" aria-label="Clear food search" className="absolute top-0 right-0 flex h-10 w-10 items-center justify-center rounded-r-md text-muted-foreground hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"
+          {query && <button type="button" aria-label="Clear food search" className="absolute top-0 right-0 flex h-10 w-10 items-center justify-center rounded-r-md text-muted-foreground hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"
             onClick={() => { setQuery(""); setActiveIndex(-1); input.current?.focus(); setOpen(true); }}>
             <X aria-hidden="true" className="size-4" />
-          </button> : <span aria-hidden="true" className="pointer-events-none absolute top-3 right-3 text-[10px] font-medium tracking-wide text-muted-foreground">DEMO</span>}
+          </button>}
         </div>
         <Dialog>
           <DialogTrigger asChild>
@@ -94,17 +94,17 @@ export function FoodSearch() {
           </DialogTrigger>
           <DialogContent className="max-h-[85dvh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Allergy filters · Preview</DialogTitle>
-              <DialogDescription>Choose allergens to exclude from the sample results. These selections stay on this page only; they are not saved to your profile.</DialogDescription>
+              <DialogTitle>Allergy filters</DialogTitle>
+              <DialogDescription>Choose allergens to exclude. Filters apply only to this search and are not saved to your profile.</DialogDescription>
             </DialogHeader>
             <fieldset className="grid grid-cols-2 gap-2">
-              <legend className="sr-only">Exclude sample items reporting these allergens</legend>
+              <legend className="sr-only">Exclude items reporting these allergens</legend>
               {SEARCH_ALLERGENS.map((allergen) => <label key={allergen} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border p-3 text-sm hover:bg-accent">
                 <input type="checkbox" checked={excluded.includes(allergen)} onChange={() => toggle(allergen)} className="size-4 accent-primary" />
                 {allergen}
               </label>)}
             </fieldset>
-            <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">Sample data only—not allergy safety guidance. Items with unknown allergen information are hidden when a filter is selected. Always confirm ingredients with dining staff.</p>
+            <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">Items with unknown allergen information are hidden when a filter is selected. Always confirm ingredients with dining staff.</p>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={() => { setExcluded([]); setActiveIndex(-1); }}>Clear filters</Button>
               <DialogClose asChild><Button>Done</Button></DialogClose>
@@ -112,13 +112,13 @@ export function FoodSearch() {
           </DialogContent>
         </Dialog>
       </div>
-      <p id={`${id}-hint`} className="sr-only">Frontend preview using sample data. Use Up and Down arrows to browse, Enter to preview an item, and Escape to close.</p>
+      <p id={`${id}-hint`} className="sr-only">Use Up and Down arrows to browse, Enter to select an item, and Escape to close.</p>
       {open && <div className="absolute top-full right-0 left-0 z-40 mt-2 overflow-hidden rounded-xl border bg-background shadow-lg">
         <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
-          <span className="text-xs font-semibold text-primary">{query.trim() ? "Search preview" : "Try a sample item"}</span>
+          <span className="text-xs font-semibold text-primary">{query.trim() ? "Search results" : "Browse food items"}</span>
           <span className="text-xs text-muted-foreground" role="status">{results.length} {results.length === 1 ? "result" : "results"}{excluded.length ? " · filtered" : ""}</span>
         </div>
-        <ul id={`${id}-results`} role="listbox" aria-label="Sample food results" className="max-h-64 overflow-y-auto overscroll-contain py-1">
+        <ul id={`${id}-results`} role="listbox" aria-label="Food results" className="max-h-64 overflow-y-auto overscroll-contain py-1">
           {results.map((item, index) => <li key={item.id} id={optionId(item)} role="option" aria-selected={activeIndex === index}
             onMouseDown={(event) => event.preventDefault()} onMouseMove={() => setActiveIndex(index)} onClick={() => choose(item)}
             onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") choose(item); }}
@@ -127,16 +127,14 @@ export function FoodSearch() {
             <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin aria-hidden="true" className="size-3" />{item.location}</span>
           </li>)}
         </ul>
-        {!results.length && <p className="px-4 py-6 text-sm text-muted-foreground">No sample items match. Try another food or clear your filters.</p>}
-        <p className="border-t bg-muted/40 px-4 py-3 text-xs leading-relaxed text-muted-foreground">Frontend prototype · Sample items, not live menus.<br />Allergy filtering is a demonstration, not a safety guarantee.</p>
+        {!results.length && <p className="px-4 py-6 text-sm text-muted-foreground">No items match. Try another food or clear your filters.</p>}
       </div>}
       <Dialog open={selected !== null} onOpenChange={(isOpen) => { if (!isOpen) setSelected(null); }}>
         <DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); input.current?.focus(); }}>
           <DialogHeader>
             <DialogTitle>{selected?.name}</DialogTitle>
-            <DialogDescription>Sample selection · {selected?.location}</DialogDescription>
+            <DialogDescription>{selected?.location}</DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">This previews selecting a search result. Live menus, availability, and food-detail navigation are not connected. No request was sent.</p>
           <DialogFooter><DialogClose asChild><Button>Back to search</Button></DialogClose></DialogFooter>
         </DialogContent>
       </Dialog>
