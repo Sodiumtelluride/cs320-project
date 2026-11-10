@@ -9,7 +9,6 @@ const rows: { key: keyof Omit<NutritionData, "servingSize" | "calories" | "calor
   { key: "totalCarbohydrate", label: "Total Carbohydrate" },
   { key: "dietaryFiber", label: "Dietary Fiber", inset: true },
   { key: "totalSugars", label: "Total Sugars", inset: true },
-  { key: "addedSugars", label: "Added Sugars", inset: true },
   { key: "protein", label: "Protein" },
 ];
 

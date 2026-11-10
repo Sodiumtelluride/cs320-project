@@ -7,6 +7,7 @@ export interface CampusLocation extends DiningHall {
   area: string;
   description: string;
   sourceUrl: string;
+  todayMenuUrl?: string;
 }
 
 export const DINING_CATEGORIES = [
@@ -42,7 +43,7 @@ export const CAMPUS_LOCATIONS: readonly CampusLocation[] = [
   { id: "morrill-cafe", name: "Morrill Café", categoryId: "around-campus", subtitle: "Café", area: "Morrill Science Center", description: "Coffee and espresso alongside baked goods, salads and sandwiches.", meals: ["grab-n-go"], sourceUrl: aroundCampusSource },
   { id: "peets-coffee-tea", name: "Peet’s Coffee & Tea", categoryId: "around-campus", subtitle: "Coffee and tea", area: "Integrated Learning Center, first floor", description: "Coffee, espresso drinks and snacks in the Integrated Learning Center.", meals: ["grab-n-go", "daily-offerings"], sourceUrl: aroundCampusSource },
   { id: "the-hub", name: "The Hub", categoryId: "around-campus", subtitle: "Café", area: "Furcolo Hall", description: "Locally roasted coffee with pastries, sandwiches and salads in Furcolo.", meals: ["grab-n-go"], sourceUrl: aroundCampusSource },
-  { id: "argo-tea", name: "Argo Tea", categoryId: "around-campus", subtitle: "Tea and coffee", area: "Hampden Building", description: "Tea, coffee and espresso beverages with pastries and paninis.", meals: ["daily-offerings"], sourceUrl: aroundCampusSource },
+  { id: "argo-tea", name: "Argo Tea", categoryId: "around-campus", subtitle: "Tea and coffee", area: "Hampden Building", description: "Tea, coffee and espresso beverages with pastries and paninis.", meals: ["daily-offerings"], menuDateMode: "today-only", sourceUrl: aroundCampusSource, todayMenuUrl: "https://www.umassdining.com/menu/argo-tea-menu" },
   { id: "newman-cafe", name: "Newman Café", categoryId: "around-campus", subtitle: "Café", area: "Newman Center", description: "Breakfast and lunch options inside the Newman Center.", meals: ["lunch"], sourceUrl: aroundCampusSource },
   { id: "snack-overflow", name: "Snack Overflow", categoryId: "around-campus", subtitle: "Café", area: "Manning College of Information and Computer Sciences", description: "A stop for coffee and specialty hot or cold drinks in Manning.", meals: ["grab-n-go"], sourceUrl: aroundCampusSource },
   { id: "post-and-bean-cafe", name: "Post & Bean Café", categoryId: "around-campus", subtitle: "Café", area: "John W. Olver Design Building", description: "Coffee and espresso with pastries, sandwiches, snacks and salads.", meals: ["grab-n-go"], sourceUrl: aroundCampusSource },
