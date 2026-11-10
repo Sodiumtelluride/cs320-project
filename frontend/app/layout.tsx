@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { AuthDialog } from "@/components/auth/auth-dialog";
 import { SiteHeader } from "@/components/site-header";
+import { MenuPreloader } from "@/components/menus/menu-preloader";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
+        <MenuPreloader />
         <AuthProvider>
           <div className="flex min-h-svh flex-col">
             <a href="#main-content" className="sr-only z-50 rounded-md bg-primary p-3 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Skip to content</a>

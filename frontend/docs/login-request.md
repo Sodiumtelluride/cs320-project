@@ -46,18 +46,14 @@ From `BackEnd`, run `npm ci`, `npm run build`, then `npm start` (port 3001 by de
 
 ## Login-request helper
 
-```ts
-import { requestLogin } from "@/lib/login-request";
+## Run locally
 
 const result = await requestLogin(
   { email, password },
   { endpoint: "/api/authenticate", signal },
 );
 
-if (!result.success) {
-  // Display the invalid-credentials message in the calling interface.
-}
-```
+From BackEnd run `npm ci`, `npm run build`, then `npm start` (port 3001 by default; PORT can override it). From frontend run `npm ci` then `npm run dev`. Next.js forwards authentication requests to `http://127.0.0.1:3001`; set server-only `BACKEND_URL` before building for another backend location. Browser requests stay on the frontend origin so session cookies work without cross-origin cookie configuration.
 
 `endpoint` is the full backend URL or a same-origin forwarding path. The optional `signal` cancels the request, and `fetcher` allows injecting a request implementation in tests. Browser callers use the built-in fetch.
 

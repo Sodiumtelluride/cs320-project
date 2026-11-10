@@ -20,9 +20,9 @@ npm run build
 
 After building, run `npm run start` to use the production server.
 
-The default data source uses the included sample API. No external backend or environment file is needed for local verification. Sample menus and food details are labeled in the interface. Shared authentication, Map, and Profile interfaces are preserved. Database and authentication service integration remain pending.
+The default data source uses the included sample API. No external backend or environment file is needed for local verification. The four sample dining halls use the same snapshot preload and cache as the live data source; other sample locations remain pending. Sample menus and food details are labeled in the interface. Shared authentication, Map, and Profile interfaces are preserved. Database and authentication service integration remain pending.
 
-Set `NEXT_PUBLIC_MENU_API_BASE_URL` to connect a compatible backend. See `docs/menu-api.md` for the proposed response contract and identifier mapping requirements.
+Set `NEXT_PUBLIC_MENU_API_BASE_URL=/api` and `BACKEND_URL` to the Express server to enable live snapshots through the same-origin rewrite. The browser starts loading today's location snapshots after rendering, then the following 13 days, with four background requests at a time. On browsers that report data saver or a 2G connection, only today is preloaded; other dates still load on demand. A selected location/date starts immediately and shares any existing request. Results are held in memory for five minutes. The current scraper fetches today and future dates; other dates are fetched on demand if a snapshot exists. Special source menus remain unavailable. See `BackEnd/README.md` for migration and refresh setup.
 
 ## Browser tests (Playwright)
 

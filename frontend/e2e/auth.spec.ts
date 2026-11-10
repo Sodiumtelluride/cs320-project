@@ -113,3 +113,5 @@ test("verified login opens profile, logout clears state, and reload restores ses
   await page.reload();
   await expect(page.getByText("student@umass.edu", { exact: true })).toBeVisible();
 });
+
+

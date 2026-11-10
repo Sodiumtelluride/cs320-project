@@ -40,10 +40,24 @@ describe("buildIngredients", () => {
         itemNode.data.set("data-ingredient-list", ingredientNode);
 
         const ingredients = buildIngredients(itemNode);
-        expect(ingredients).toEqual(["Salt", "Pepper", "[Chicken]"]);
+        expect(ingredients).toEqual(new Set(["Salt", "Pepper", "[Chicken]"]));
     })
 
-})
+    it("removes duplicate ingredients from reaching db", () =>{
+        const ingredientNode = new DataNode();
+
+        ingredientNode.data.set("Ingredient1", "Salt,");
+        ingredientNode.data.set("Ingredient2", "Pepper)");
+        ingredientNode.data.set("Ingredient3", "Salt");
+
+        const itemNode = new DataNode();
+        itemNode.data.set("data-ingredient-list", ingredientNode);
+
+        const ingredients = buildIngredients(itemNode)
+        expect(ingredients).toEqual(new Set (["Salt", "Pepper"]));
+    });
+
+});
 
 describe("buildAllergies", () => {
     it("builds and cleans allergy list from DataNode", () =>{
@@ -58,8 +72,23 @@ describe("buildAllergies", () => {
         itemNode.data.set("data-allergens", allergyNode);
 
         const allergies = buildAllergies(itemNode);
-        expect(allergies).toEqual(["Peanuts", "Dairy", "Gluten"]);
+        expect(allergies).toEqual( new Set(["Peanuts", "Dairy", "Gluten"]));
     })
+
+    it("removes duplicate allergens from reaching db", () =>{
+        const allergyNode = new DataNode();
+
+        allergyNode.data.set("Allergy1", "Peanuts,");
+        allergyNode.data.set("Allergy2", "Dairy)");
+        allergyNode.data.set("Allergy3", "Peanuts");
+
+        const itemNode = new DataNode();
+        itemNode.data.set("data-allergens", allergyNode);
+
+        const allergies = buildAllergies(itemNode)
+        expect(allergies).toEqual(new Set (["Peanuts", "Dairy"]));
+    });
+
 })
 
 describe("buildNutritionalInfo", () => {

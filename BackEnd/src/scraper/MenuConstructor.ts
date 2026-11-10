@@ -7,13 +7,32 @@ export class MenuConstructor {
 
   static async constructMenuDataFromLink(URL: string) {
     const menuNode = new DataNode();
-    const menujson = await (await fetch(URL)).json();
+    let response: Response | undefined;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        response = await fetch(URL, { signal: AbortSignal.timeout(15000) });
+        if (response.ok) break;
+        if (response.status < 500 && response.status !== 429) throw new Error(`Menu source returned ${response.status}`);
+      } catch (error) {
+        if (attempt === 2) throw error;
+      }
+    }
+    if (!response?.ok) throw new Error(`Menu source returned ${response?.status ?? "no response"}`);
+    const menujson: unknown = await response.json();
+    // FoodPro uses [] for dates with no published menus. Nonempty arrays are
+    // not part of its menu contract and must not replace a good snapshot.
+    if (Array.isArray(menujson)) {
+      if (menujson.length === 0) return menuNode;
+      throw new Error("Invalid menu source response");
+    }
+    if (!menujson || typeof menujson !== "object") throw new Error("Invalid menu source response");
+    if (!Object.keys(menujson).length) throw new Error("Empty menu source response; retaining the previous snapshot");
 
     for (const [time, timeData] of Object.entries(menujson)) {
       const mealTimeData = new DataNode();
-      for (const [station, stationData] of Object.entries(
-        timeData as Record<string, any>,
-      )) {
+      if (!timeData || typeof timeData !== "object" || Array.isArray(timeData)) throw new Error("Invalid menu period");
+      for (const [station, stationData] of Object.entries(timeData)) {
+        if (typeof stationData !== "string") throw new Error("Invalid station data");
         const htmlData = parse(stationData as string);
         mealTimeData.data.set(station, await MenuConstructor.stationHtmlParse(htmlData));
       }
@@ -32,9 +51,9 @@ export class MenuConstructor {
     for (const meal of meals) {
       mealNode = new DataNode();
       subbox = meal.querySelector("a");
-      if (subbox === undefined || subbox === null) break;
+      if (subbox === undefined || subbox === null) throw new Error("Food is missing its details");
       name = subbox.getAttribute("data-dish-name");
-      if (name === undefined) break;
+      if (!name?.trim()) throw new Error("Food is missing its name");
       stationNode.data.set(name, mealNode);
       let ingredientsNode;
       let allergensNode;
@@ -163,8 +182,9 @@ export class MenuConstructor {
             return -1; //another page with a link to an off website page
         case "Charles River Campus of UMass Amherst":
             return 10372;
-
-        
+        case "Terrace":
+            return 11150;
+              
         default:
             return -1;
     }
