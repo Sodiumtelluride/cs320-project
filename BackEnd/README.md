@@ -11,3 +11,9 @@ The configured foodpro feeds cover the commons and frontend locations with known
 For local development without a snapshot database, `LOCAL_MENU_PREVIEW=1` enables a temporary in-memory snapshot store. It fetches real upstream data, warms today's supported locations in the background, and reuses in-flight and completed requests for 30 minutes. The data disappears when the server stops. This mode is for local preview only; it does not populate the production snapshot table.
 
 In PowerShell, run `npm run build`, then set `$env:LOCAL_MENU_PREVIEW='1'`, `$env:SESSION_SECRET='local-development-only'`, `$env:SUPABASE_URL='https://example.invalid'`, and `$env:SUPABASE_KEY='local-preview'` before `npm start`. The placeholder Supabase settings satisfy the existing authentication module but do not connect to a real database. In another terminal under `frontend`, set `$env:NEXT_PUBLIC_MENU_API_BASE_URL='/api'` before `npm run dev`. Configure the normal backend separately to test login.
+
+## Supabase keys and account data
+
+`SUPABASE_KEY` is the publishable (anon) key — public by design, and anyone can copy it out of a browser request. Since `supabase/migrations/20261113080358_lock_account_data_to_backend.sql`, `anon` has no privilege on the account tables and no execute on the account RPCs, so this key only serves the public menu data.
+
+`SUPABASE_SECRET_KEY` (the secret / service-role key) is server-only and is required: every account login lookup, profile read, signup and profile edit goes out on it. `require_profile_owner()` accepts a profile edit only when the request carried that key, or a user token whose subject owns the profile, and it still requires `p_caller_id` — which the backend fills in from its own session. Set it from Dashboard -> Project Settings -> API Keys -> Secret key, or `supabase projects api-keys --project-ref <ref> --reveal`. Without it the backend warns at startup and `/api/users*` answers 403.

@@ -30,7 +30,9 @@ declare module "express-session" {
  *      persist cookies (e.g. supertest without a cookie jar).
  *
  * On success, stores the authenticated user's id on `req.authUserId` so
- * downstream handlers can enforce ownership.
+ * downstream handlers can enforce ownership, and so the profile-write handlers can
+ * pass it to the database as `p_caller_id`. Nothing a client sends is trusted for
+ * that id: it comes from the session, or from credentials verified here.
  */
 export async function authorizeUser(req: Request, res: Response, next: NextFunction) {
   // 1. Session cookie (preferred — works on GET)
@@ -55,9 +57,12 @@ export async function authorizeUser(req: Request, res: Response, next: NextFunct
 
 /**
  * Middleware that must run AFTER `authorizeUser`. Rejects requests where the
- * `:id` path parameter does not belong to the authenticated user.
- * GET /api/users (list all users) skips this; the username lookup route
- * checks ownership after it finds the user.
+ * `:id` path parameter does not belong to the authenticated user, and guarantees
+ * the handlers below that `req.authUserId` is set and equals that id.
+ *
+ * GET /api/users skips it because the route has no `:id` — its handler scopes the
+ * query to `req.authUserId` instead. The username lookup route checks ownership
+ * after it finds the user, because it needs the row to know who it is.
  */
 export function requireOwnership(req: Request, res: Response, next: NextFunction) {
   // Express 5 types allow repeated params to arrive as an array; only a single

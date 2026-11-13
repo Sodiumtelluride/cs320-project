@@ -1,6 +1,6 @@
 import "dotenv/config";
 import * as bcrypt from "bcrypt";
-import { supabase } from "./supabase.js";
+import { supabaseAdmin } from "./supabase.js";
 
 // npm install @supabase/supabase-js bcrypt dotenv
 // npm install -D typescript tsx @types/node @types/bcrypt
@@ -13,6 +13,15 @@ import { supabase } from "./supabase.js";
 //   users(user_id, username) + passwords(password_hash, user_id)
 //   + favorite_foods(food_name, user_id) + allergies(allergy_name, user_id)
 // There is no email column — "email" in the API is just the username.
+//
+// Access control: the account tables are reachable by this process and nobody else.
+// anon has no SELECT, INSERT, UPDATE or DELETE on them and no execute on the account
+// RPCs, so nothing — not even a read — can skip the Express app
+// (supabase/migrations/20261113080358_lock_account_data_to_backend.sql). Writes that
+// need a specific profile go through the two SECURITY DEFINER RPCs, which take the
+// caller's id as p_caller_id and check it, along with the key the request carried, in
+// require_profile_owner() (20261110045234, 20261113073554). Everything here
+// therefore runs on supabaseAdmin, the secret-key client.
 
 // ---------- Types ----------
 
@@ -48,11 +57,6 @@ export interface UserDetails {
   username: string;
   favoriteFoods: string[];
   allergies: string[];
-}
-
-export interface UpdateUserBody {
-  favoriteFoods?: unknown;
-  allergies?: unknown;
 }
 
 export interface AuthBody {
@@ -142,7 +146,7 @@ export function parseCreateUserBody(
  * username), so a caller can never tell which half of the credentials was wrong.
  */
 export async function authenticateUser(username: string, password: string): Promise<string | null> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("users")
     .select(AUTH_SELECT)
     .eq("username", username)
