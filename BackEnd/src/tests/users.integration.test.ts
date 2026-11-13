@@ -5,11 +5,12 @@
  *   - ownership enforcement (403 cross-user access) is verified end-to-end
  *   - malformed array elements are rejected before any DB write
  *   - the create_user_with_details, update_user_details and delete_user_details
- *     RPCs are exercised for real, including the ownership guard added by
- *     20261110000000_verify_profile_ownership.sql
- *   - the same writes are attempted straight through PostgREST, the way a caller
- *     holding the publishable key would make them, to show the database refuses
- *     them without the Express middleware
+ *     RPCs are exercised for real, including the caller check added by
+ *     20261110045234 + 20261113073554_verify_caller_identity.sql and the read lock
+ *     added by 20261113080358_lock_account_data_to_backend.sql
+ *   - the same reads and writes are attempted straight through PostgREST, the way a
+ *     caller holding the publishable key would make them, to show the database
+ *     refuses them without the Express middleware and without the backend's key
  *
  * Skipped automatically when SUPABASE_URL is not configured.
  *
@@ -18,18 +19,24 @@
  * leak into the real client here. Vitest runs each test file in its own
  * worker, so this is safe in practice.
  *
- * The publishable key in .env.test is an anon-class key. update_user_details and
- * delete_user_details are SECURITY DEFINER and granted to anon, but they call
- * require_profile_owner() first, so a write needs the caller's id to match the
- * profile's owner — that is what the p_caller_id the handlers send from
- * req.authUserId is for. The direct-PostgREST tests below skip themselves if the
- * migration has not been applied to this database yet.
+ * Two keys, on purpose. .env.test's SUPABASE_KEY is the publishable (anon) key, and
+ * the tests use it to speak as "somebody who skipped the backend"; everything the
+ * handlers do to the account tables goes out on the secret key
+ * (supabaseAdmin in src/db/supabase.ts), because that is how the database tells the
+ * backend apart from a stranger. Set SUPABASE_SECRET_KEY in .env.test, or the
+ * tests that need the app skip themselves. The tests that need the migrations skip
+ * themselves too — see the probes below.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 
 const supabaseUrl = (process.env.SUPABASE_URL ?? "").trim();
 const supabaseKey = (process.env.SUPABASE_KEY ?? "").trim();
+const secretKey = (
+  process.env.SUPABASE_SECRET_KEY ??
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??
+  ""
+).trim();
 const hasDatabase = Boolean(supabaseUrl && supabaseKey);
 
 const run = hasDatabase ? it : it.skip;
@@ -78,34 +85,72 @@ async function rpc(name: string, args: Record<string, unknown>) {
 }
 
 /**
- * Is 20261110000000_verify_profile_ownership.sql applied to this database?
+ * Is 20261113073554_verify_caller_identity.sql applied to this database?
  *
- * Probed with two ids that do not exist, and lists that are empty, so the probe
- * itself cannot change any data. Before the migration the four-argument
- * signature does not exist (400/404); after it the guard answers
- * "not authorized" (401/403) or accepts a matching pair (204).
+ * The probe is the attack itself, made as an outside caller: the publishable key,
+ * two ids that do not exist, empty lists — so it cannot change any data. Naming the
+ * profile's owner as the caller is the whole trick, and it is the difference between
+ * the two migrations: the old guard accepted the matching pair (204), the new one
+ * refuses it (401/403) because a publishable-key caller cannot prove anything about
+ * itself. A database that predates 20261110045234 has no four-argument signature
+ * and answers 400, which correctly means "not the new behaviour".
  */
-async function guardIsDeployed(): Promise<boolean> {
+async function identityIsEnforced(): Promise<boolean> {
   if (!hasDatabase) return false;
-  const mismatched = await rpc("update_user_details", {
-    p_user_id: OTHER_UUID,
-    p_caller_id: "ffffffff-aaaa-4bbb-8ccc-dddddddddddd",
-    p_foods: [],
-    p_allergies: [],
-  });
-  if (REFUSED.includes(mismatched.status)) return true;
-
-  const matched = await rpc("update_user_details", {
+  const spoofed = await rpc("update_user_details", {
     p_user_id: OTHER_UUID,
     p_caller_id: OTHER_UUID,
     p_foods: [],
     p_allergies: [],
   });
-  return matched.status === 204 || matched.status === 200;
+  return REFUSED.includes(spoofed.status);
 }
 
-const guardDeployed = await guardIsDeployed();
-const runGuard = guardDeployed ? it : it.skip;
+/**
+ * Is 20261113080358_lock_account_data_to_backend.sql applied too?
+ *
+ * Probe: may the publishable key still read one username? While anon has SELECT that
+ * answers 200 with a row; once the account tables are backend-only it answers
+ * 401/403, and no account row, list of allergies or password hash is reachable over
+ * REST at all.
+ */
+async function accountReadsLocked(): Promise<boolean> {
+  if (!hasDatabase) return false;
+  return REFUSED.includes((await rest("users?select=username&limit=1")).status);
+}
+
+const identityEnforced = await identityIsEnforced();
+const readsLocked = await accountReadsLocked();
+
+/**
+ * Talking to the Express app about accounts needs the secret key
+ * (supabaseAdmin in src/db/supabase.ts), because since those two migrations the
+ * secret key is the only credential the database accepts for account traffic.
+ * Without a key configured the app-level tests skip rather than fail, so a clone of
+ * this repo without secrets still runs green.
+ */
+const appCanUseAccounts = hasDatabase && (Boolean(secretKey) || !(identityEnforced || readsLocked));
+
+/** The database-side tests: these are what the two migrations are for. */
+const runIdentity = identityEnforced && appCanUseAccounts ? it : it.skip;
+/** Only meaningful once the account tables are backend-only. */
+const runReadLock = readsLocked && appCanUseAccounts ? it : it.skip;
+
+if (hasDatabase && !appCanUseAccounts) {
+  console.warn(
+    "users.integration.test.ts: SUPABASE_SECRET_KEY is not set while the account " +
+      "migrations are applied, so the app-level tests are skipped — the backend " +
+      "needs the secret key to read or write accounts at all (src/db/supabase.ts)."
+  );
+} else if (hasDatabase && !(identityEnforced && readsLocked)) {
+  console.warn(
+    "users.integration.test.ts: 20261113073554_verify_caller_identity.sql and " +
+      "20261113080358_lock_account_data_to_backend.sql are not both applied to this " +
+      "database, so the caller-identity and read-lock tests are skipped. Until they " +
+      "are, a caller holding the publishable key can write a profile by naming its " +
+      "owner in both p_user_id and p_caller_id, and can read every account."
+  );
+}
 
 // Unique per run so repeated runs don't collide on the username unique index
 const suffix = Date.now().toString(36);
@@ -132,6 +177,10 @@ async function createUser(username: string, password: string, foods: string[] = 
 }
 
 runAll(async () => {
+  // Creating accounts goes through the app, and the app needs the secret key for that
+  // once the account tables are backend-only. Nothing below needs aliceId/bobId when
+  // this is skipped: every test that uses them is gated on the same condition.
+  if (!appCanUseAccounts) return;
   aliceId = await createUser(alice.username, alice.password, ["pizza"], ["peanuts"]);
   bobId = await createUser(bob.username, bob.password, ["tacos"]);
   expect(aliceId).toMatch(/^[0-9a-f-]{36}$/i);
@@ -153,7 +202,9 @@ async function signIn(account: { username: string; password: string }) {
   return agent;
 }
 
-describe("real database: user routes", () => {
+// Needs the secret key once the account tables are backend-only: every one of these
+// reads or writes the account tables through the app.
+describe.runIf(appCanUseAccounts)("real database: user routes", () => {
   it("creates users that can then authenticate", async () => {
     const res = await request(app)
       .post("/api/authenticate")
@@ -228,8 +279,8 @@ describe("real database: user routes", () => {
   });
 });
 
-describe("real database: profile edits through the RPCs", () => {
-  run("the owner's allergy and favorite-food edits persist and can be removed again", async () => {
+describe.runIf(appCanUseAccounts)("real database: profile edits through the RPCs", () => {
+  it("the owner's allergy and favorite-food edits persist and can be removed again", async () => {
     const agent = await signIn(alice);
 
     const put = await agent.put(`/api/users/${aliceId}/allergies`).send({ allergies: ["peanuts", "soy"] });
@@ -259,7 +310,7 @@ describe("real database: profile edits through the RPCs", () => {
     });
   });
 
-  run("refuses a cross-user edit and leaves the other account untouched", async () => {
+  it("refuses a cross-user edit and leaves the other account untouched", async () => {
     const aliceAgent = await signIn(alice);
 
     const crossEdit = await aliceAgent
@@ -281,17 +332,31 @@ describe("real database: profile edits through the RPCs", () => {
     const del = await request(app).delete(`/api/users/${aliceId}/allergies`).send({ allergy: "nobody" });
     expect(del.status).toBe(400);
 
+    // Neither request reached the database. Confirming that from the outside is only
+    // possible while anon still has SELECT; since
+    // 20261113080358_lock_account_data_to_backend.sql the read is refused too, which
+    // is the stronger answer.
     const allergies = await rest(`allergies?select=allergy_name&user_id=eq.${aliceId}`);
-    expect(allergies.status).toBe(200);
-    expect(JSON.stringify(allergies.text)).not.toContain("nobody");
+    if (readsLocked) {
+      expect(REFUSED).toContain(allergies.status);
+    } else {
+      expect(allergies.status).toBe(200);
+      expect(JSON.stringify(allergies.text)).not.toContain("nobody");
+    }
   });
 });
 
 describe("real database: a caller holding only the publishable key", () => {
-  // These go straight to PostgREST, so nothing in src/middleware/auth.ts is
-  // involved: they are what 20261110000000_verify_profile_ownership.sql is for.
+  // These go straight to PostgREST, so nothing in src/middleware/auth.ts or in the
+  // Express app's key is involved: they are what 20261113073554 (writes) and
+  // 20261113080358 (reads) are for. The message is not asserted because the refusal
+  // may arrive either as Postgres' permission denied — the RPC is no longer granted to
+  // anon, nor is SELECT on the tables — or as require_profile_owner()'s own 42501;
+  // both are 401/403 and both leave the data alone. The follow-up reads below that
+  // assert "still peanuts" also pass on the error body, which cannot mention the
+  // string we tried to write.
 
-  runGuard("cannot update another account's details", async () => {
+  runIdentity("cannot update another account's details", async () => {
     const res = await rpc("update_user_details", {
       p_user_id: aliceId,
       p_caller_id: bobId,
@@ -299,12 +364,11 @@ describe("real database: a caller holding only the publishable key", () => {
     });
 
     expect(REFUSED).toContain(res.status);
-    expect(res.text).toContain("not authorized");
     const allergies = await rest(`allergies?select=allergy_name&user_id=eq.${aliceId}`);
     expect(JSON.stringify(allergies.json)).not.toContain("ghost-allergen");
   });
 
-  runGuard("cannot delete from another account's details", async () => {
+  runIdentity("cannot delete from another account's details", async () => {
     const res = await rpc("delete_user_details", {
       p_user_id: aliceId,
       p_caller_id: bobId,
@@ -312,10 +376,34 @@ describe("real database: a caller holding only the publishable key", () => {
     });
 
     expect(REFUSED).toContain(res.status);
-    expect(res.text).toContain("not authorized");
   });
 
-  runGuard("cannot write without naming a caller at all", async () => {
+  // The bug this migration exists for: naming the victim in p_user_id AND in
+  // p_caller_id used to satisfy the old comparison, so a stranger holding the
+  // public key could edit and clear an account they had never signed into.
+  runIdentity("cannot edit an account by claiming its owner as the caller", async () => {
+    const put = await rpc("update_user_details", {
+      p_user_id: aliceId,
+      p_caller_id: aliceId,
+      p_allergies: ["ghost-allergen"],
+    });
+
+    expect(REFUSED).toContain(put.status);
+
+    const del = await rpc("delete_user_details", {
+      p_user_id: aliceId,
+      p_caller_id: aliceId,
+      p_allergy_to_delete: "peanuts",
+    });
+
+    expect(REFUSED).toContain(del.status);
+
+    // Nothing was replaced and nothing was deleted.
+    const allergies = await rest(`allergies?select=allergy_name&user_id=eq.${aliceId}`);
+    expect(JSON.stringify(allergies.json)).not.toContain("ghost-allergen");
+  });
+
+  runIdentity("cannot write without naming a caller at all", async () => {
     const res = await rpc("update_user_details", {
       p_user_id: aliceId,
       p_allergies: ["ghost-allergen"],
@@ -326,7 +414,7 @@ describe("real database: a caller holding only the publishable key", () => {
     expect(JSON.stringify(allergies.json)).not.toContain("ghost-allergen");
   });
 
-  runGuard("cannot bypass the RPCs and write the account tables directly", async () => {
+  runIdentity("cannot bypass the RPCs and write the account tables directly", async () => {
     const patch = await rest(`allergies?user_id=eq.${aliceId}`, {
       method: "PATCH",
       body: { allergy_name: "direct-write" },
@@ -342,22 +430,76 @@ describe("real database: a caller holding only the publishable key", () => {
     const remove = await rest(`users?user_id=eq.${aliceId}`, { method: "DELETE" });
     expect(REFUSED).toContain(remove.status);
 
-    // Reads still work: the backend's GET handlers and login lookup use them.
+    // Reads used to be the hole that was left: they are closed by 20261113080358, so
+    // accept whichever state this database is in and let the read-lock tests below
+    // assert the new one.
     const read = await rest(`users?select=username&user_id=eq.${aliceId}`);
-    expect(read.status).toBe(200);
-    expect(read.json).toEqual([{ username: alice.username }]);
+    if (readsLocked) {
+      expect(REFUSED).toContain(read.status);
+    } else {
+      expect(read.status).toBe(200);
+      expect(read.json).toEqual([{ username: alice.username }]);
+    }
   });
 
-  runGuard("keeps the ownership guard itself out of reach through /rpc/", async () => {
+  runIdentity("keeps the ownership guard itself out of reach through /rpc/", async () => {
     const res = await rpc("require_profile_owner", { p_user_id: aliceId, p_caller_id: aliceId });
     expect(REFUSED).toContain(res.status);
   });
 
-  // What the guard cannot do yet: a caller with the publishable key can name the
-  // owner as its own caller, p_caller_id = p_user_id. Proving identity needs a
-  // secret the anon role cannot see (a service-role key for these RPCs, or a
-  // per-request token whose subject PostgREST exposes) - see the migration header.
-  it("documents that the caller id is a cross-user guard, not proof of identity", () => {
-    expect(guardDeployed).toBe(true);
+  // The probe is the test: it asks the database whether the matching pair
+  // p_user_id = p_caller_id is still enough to get a write through with the public
+  // key, and it must not be. p_caller_id is a cross-user guard the backend applies
+  // to itself; the key check is what makes it mean anything to a stranger.
+  runIdentity("refuses a publishable-key caller no matter which id it claims to be", () => {
+    expect(identityEnforced).toBe(true);
+  });
+});
+
+describe("real database: the publishable key cannot read the account tables either", () => {
+  // What 20261113080358_lock_account_data_to_backend.sql is for. Everything here is
+  // what a caller can still do after logging out: hold the public key, know that a
+  // user_id exists, and ask the database directly.
+
+  runReadLock("cannot list accounts or look one up by id", async () => {
+    expect(REFUSED).toContain((await rest("users?select=user_id,username&limit=5")).status);
+    expect(REFUSED).toContain((await rest(`users?select=username&user_id=eq.${aliceId}`)).status);
+  });
+
+  runReadLock("cannot read anyone's allergies or favorite foods", async () => {
+    expect(REFUSED).toContain(
+      (await rest(`allergies?select=allergy_name&user_id=eq.${aliceId}`)).status
+    );
+    expect(REFUSED).toContain((await rest("favorite_foods?select=food_name")).status);
+  });
+
+  runReadLock("cannot pull the bcrypt hashes out of /passwords", async () => {
+    const res = await rest("passwords?select=user_id,password_hash&limit=3");
+    expect(REFUSED).toContain(res.status);
+    expect(res.text).not.toContain("$2"); // and the refusal itself carries no hash
+  });
+
+  runReadLock("cannot reach the details through an embedded select on users", async () => {
+    const res = await rest(`users?select=username,allergies(allergy_name)&user_id=eq.${aliceId}`);
+    expect(REFUSED).toContain(res.status);
+  });
+
+  runReadLock("cannot sign up straight through /rpc with a hand-made password hash", async () => {
+    const res = await rpc("create_user_with_details", {
+      p_username: `itest-stranger-signup-${Date.now().toString(36)}`,
+      p_password_hash: "not-even-a-bcrypt-hash",
+      p_foods: [],
+      p_allergies: [],
+    });
+    expect(REFUSED).toContain(res.status);
+  });
+
+  // Public data is deliberately left open: the menu routes serve it to guests.
+  runReadLock("leaves the menu tables readable", async () => {
+    expect((await rest("locations?select=id&limit=1")).status).toBe(200);
+  });
+
+  runReadLock("is what the read-lock probe found", () => {
+    expect(readsLocked).toBe(true);
   });
 });

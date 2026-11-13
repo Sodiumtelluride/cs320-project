@@ -14,7 +14,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import * as bcrypt from "bcrypt";
 
-vi.mock("../db/supabase.js", () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
+// One fake client behind both exports: the profile-write handlers use supabaseAdmin,
+// the secret-key client (src/db/supabase.ts), and the assertions below do not care
+// which key a mocked request claims to have carried — only that the right RPC was
+// called with the right arguments.
+const fakeDb = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }));
+
+vi.mock("../db/supabase.js", () => ({ supabase: fakeDb, supabaseAdmin: fakeDb }));
 import { supabase } from "../db/supabase.js";
 import { app } from "../app.js";
 

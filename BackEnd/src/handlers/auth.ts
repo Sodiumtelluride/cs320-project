@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { supabase } from "../db/supabase.js";
+import { supabaseAdmin } from "../db/supabase.js";
 import { authenticateUser, toAuthMeUser, USER_SELECT } from "../db/client.js";
 import type { AuthBody, AuthMeUser, ErrorResponse, UserRow } from "../db/client.js";
 
@@ -51,7 +51,7 @@ export async function currentUser(
     return res.json([]);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("users")
     .select(USER_SELECT)
     .eq("user_id", sessionUserId)
