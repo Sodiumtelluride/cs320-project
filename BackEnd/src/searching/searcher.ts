@@ -82,7 +82,7 @@ export class Searcher{
             const ingredientsNode = mealNode.data.get("ingredients");
             if(ingredientsNode === undefined || typeof(ingredientsNode) === "string") continue;
 
-            ingredientsNode.data.set((ingredientsNode.data.size).toString(),ingredient);
+            ingredientsNode!.data.set((ingredientsNode!.data.size).toString(),ingredient);
         }
 
         for(const row of allergenMapData){
@@ -93,7 +93,7 @@ export class Searcher{
             const allergensNode = mealNode.data.get("allergens");
             if(allergensNode === undefined || typeof(allergensNode) === "string") continue;
 
-            allergensNode.data.set((allergensNode.data.size).toString(),allergen);
+            allergensNode!.data.set((allergensNode!.data.size).toString(),allergen);
         }
     }
 
@@ -120,7 +120,7 @@ export class Searcher{
         if(typeof(allergensNode) === "string") return false;
         const allergensInMeal = new Set<string>();
         for(const allergen of allergensNode.data.values()){
-            allergensInMeal.add(allergen.toString());
+            allergensInMeal.add(allergen!.toString());
         }
         for(const str of filter){
             if(allergensInMeal.has(str)) return false;
@@ -161,7 +161,7 @@ export class Searcher{
             if(typeof(mealName) !== "string") {console.error("Meal name not properly accessed"); return []};
             const ingredientNode = this.allMeals.get(mealId)?.data.get("ingredients");
             if(ingredientNode === undefined|| typeof(ingredientNode) === "string") continue;
-            score = this.getScore(userSearch, mealName, ingredientNode);
+            score = this.getScore(userSearch, mealName, ingredientNode!);
             priorityQueue.enqueue({mealName : mealName, id : mealId, score : score});
         }        
 
