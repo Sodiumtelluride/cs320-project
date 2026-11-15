@@ -5,17 +5,25 @@ import { supabase } from '../db/supabase.js';
 type SearchResult = {mealName : string, id : number, score : number};
 
 export class Searcher{
+    private static instance : Searcher | null = null;
+
     private allMeals : Map<number, DataNode>;
     private allIngredients : Map<number, string>;
     private allAllergens : Map<number, string>;
-    private dataCollected : boolean;
+    private ready : Promise<void>;
 
-    constructor(){
+    private constructor(){
         this.allMeals = new Map<number, DataNode>();
         this.allIngredients = new Map<number, string>();
         this.allAllergens = new Map<number, string>();
-        this.dataCollected = false;
-        this.getData();
+        this.ready = this.getData();
+    }
+
+    public static getInstance() : Searcher {
+        if(this.instance === null){
+            this.instance = new Searcher();
+        }
+        return this.instance;
     }
 
     private async getData(){
@@ -87,8 +95,6 @@ export class Searcher{
 
             allergensNode.data.set((allergensNode.data.size).toString(),allergen);
         }
-
-        this.dataCollected = true;
     }
 
     private checkForRequiredTags(filter : string[], mealId : number) : boolean {
@@ -123,10 +129,7 @@ export class Searcher{
     }
 
     public async advancedSearch(userSearch : string, filter : string[] = []) : Promise<SearchResult[]>{ // full search that incorporates ingredient weightings
-        if(!this.dataCollected){
-            console.warn("data collection not finished yet");
-            return [];
-        }
+        await this.ready;
 
         const basicOrder = await this.SearchForSimilar(userSearch,filter);
         const priorityQueue = new MaxPriorityQueue<SearchResult>(result=> result.score);
@@ -147,10 +150,8 @@ export class Searcher{
 
     private async SearchForSimilar(userSearch : string, filter : string[] = []) : Promise<SearchResult[]> { //basic search, only incorporates name. 
 
-        if(!this.dataCollected){
-            console.warn("data collection not finished yet");
-            return [];
-        }
+        await this.ready;
+
         const priorityQueue = new MaxPriorityQueue<SearchResult>(result=> result.score);
 
         let score : number;
@@ -168,10 +169,7 @@ export class Searcher{
     } 
 
     public async partialInputSearch(userSearch : string, filter : string[] = []) : Promise<SearchResult[]> { //lightweight search that weights string input matching when typing above all else
-        if(!this.dataCollected){
-            console.warn("data collection not finished yet");
-            return [];
-        }
+        await this.ready;
 
         const basicOrder = await this.SearchForSimilar(userSearch,filter);
         const priorityQueue = new MaxPriorityQueue<SearchResult>(result=> result.score);
