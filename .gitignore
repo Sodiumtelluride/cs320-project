@@ -81,6 +81,7 @@ web_modules/
 
 # dotenv environment variable files
 .env
+.env.test
 .env.development.local
 .env.test.local
 .env.production.local
@@ -156,5 +157,4 @@ node_modules
 psd
 thumb
 sketch
-package-lock.json
 # End of https://www.toptal.com/developers/gitignore/api/node,react
