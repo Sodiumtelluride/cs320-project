@@ -69,6 +69,20 @@ const USER_SELECT =
   "user_id, username, favorite_foods(food_name), allergies(allergy_name)";
 
 /**
+ * A list read (GET /api/users) awaits the query builder instead of calling
+ * maybeSingle(), and a real supabase-js builder is thenable, so the fake builder
+ * in beforeEach has to be awaitable as well. mockList() is how a test hands it the
+ * rows that read should see.
+ */
+const listResult: { value: { data: unknown; error: unknown } } = {
+  value: { data: [], error: null },
+};
+
+function mockList(data: unknown, error: unknown = null) {
+  listResult.value = { data, error };
+}
+
+/**
  * authenticateUser() lives inside client.ts, so it can't be replaced with vi.mock.
  * Instead we feed it fake Supabase + bcrypt results. It is always the FIRST
  * supabase.from("users").select(...) call of a protected request, so a
@@ -100,9 +114,15 @@ const validBody = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  listResult.value = { data: [], error: null };
   mocks.from.mockReturnValue({ select: mocks.select });
   mocks.select.mockReturnValue({ eq: mocks.eq });
-  mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle });
+  mocks.eq.mockReturnValue({
+    maybeSingle: mocks.maybeSingle,
+    // A list read awaits the builder itself instead of calling maybeSingle(), so
+    // the fake builder resolves through `then`.
+    then: (resolve: (value: unknown) => void) => resolve(listResult.value),
+  });
   mocks.hash.mockResolvedValue("hashed-password");
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -354,10 +374,10 @@ describe("authorizeUser middleware", () => {
 // GET /api/users
 // ---------------------------------------------------------------------------
 
-describe("GET /api/users", () => {
-  it("returns all users mapped to the API shape", async () => {
+describe("GET /api/users (the caller's own account only)", () => {
+  it("scopes the query to the caller's row and returns it in a one-element array", async () => {
     mockAuth();
-    mocks.select.mockResolvedValue({ data: [dbRow], error: null });
+    mockList([dbRow]);
 
     const res = await request(app).get("/api/users").send(creds);
 
@@ -365,11 +385,24 @@ describe("GET /api/users", () => {
     expect(res.body).toEqual([apiUser]);
     expect(mocks.from).toHaveBeenCalledWith("users");
     expect(mocks.select).toHaveBeenCalledWith(USER_SELECT);
+    // Scoped in the database, not trimmed out of a full table read afterwards
+    expect(mocks.eq).toHaveBeenCalledWith("user_id", VALID_UUID);
   });
 
-  it("returns an empty array when there are no users", async () => {
+  it("withholds another user's row even if the database hands one back", async () => {
     mockAuth();
-    mocks.select.mockResolvedValue({ data: [], error: null });
+    mockList([dbRow, otherDbRow]);
+
+    const res = await request(app).get("/api/users").send(creds);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([apiUser]);
+    expect(JSON.stringify(res.body)).not.toContain("bob");
+  });
+
+  it("returns an empty array when the caller has no row", async () => {
+    mockAuth();
+    mockList([]);
 
     const res = await request(app).get("/api/users").send(creds);
 
@@ -379,7 +412,7 @@ describe("GET /api/users", () => {
 
   it("returns 500 on DB error", async () => {
     mockAuth();
-    mocks.select.mockResolvedValue({ data: null, error: { message: "boom" } });
+    mockList(null, { message: "boom" });
 
     const res = await request(app).get("/api/users").send(creds);
 
@@ -389,7 +422,7 @@ describe("GET /api/users", () => {
 
   it("never includes password hashes in the response", async () => {
     mockAuth();
-    mocks.select.mockResolvedValue({ data: [dbRow], error: null });
+    mockList([dbRow]);
 
     const res = await request(app).get("/api/users").send(creds);
 
@@ -539,8 +572,88 @@ describe("ownership enforcement on PUT / DELETE", () => {
     expect(res.status).toBe(200);
     expect(mocks.rpc).toHaveBeenCalledWith(
       "update_user_details",
-      expect.objectContaining({ p_user_id: VALID_UUID.toUpperCase() })
+      expect.objectContaining({
+        p_user_id: VALID_UUID.toUpperCase(),
+        // The id the session proved, canonical-case — not the path parameter.
+        p_caller_id: VALID_UUID,
+      })
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The caller identity the database checks
+// ---------------------------------------------------------------------------
+
+describe("caller identity handed to the profile RPCs", () => {
+  it("sends the session-proved id as p_caller_id, not one the body claims", async () => {
+    mockAuth();
+    mocks.rpc.mockResolvedValue({ data: null, error: null });
+
+    const res = await request(app)
+      .put(`/api/users/${VALID_UUID}/allergies`)
+      .send({ ...creds, allergies: ["peanuts"], p_caller_id: OTHER_UUID });
+
+    expect(res.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "update_user_details",
+      expect.objectContaining({ p_user_id: VALID_UUID, p_caller_id: VALID_UUID })
+    );
+  });
+
+  it("rejects an anonymous PUT without reaching the RPC", async () => {
+    // No session cookie and no credentials in the body.
+    const res = await request(app)
+      .put(`/api/users/${VALID_UUID}/allergies`)
+      .send({ allergies: ["peanuts"] });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Username and password are required" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects an anonymous DELETE without reaching the RPC", async () => {
+    const res = await request(app)
+      .delete(`/api/users/${VALID_UUID}/favorite-foods`)
+      .send({ food: "pizza" });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Username and password are required" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("maps the database's 42501 ownership rejection to 403", async () => {
+    mockAuth();
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "42501", message: "not authorized to access this user" },
+    });
+
+    const put = await request(app)
+      .put(`/api/users/${VALID_UUID}/allergies`)
+      .send({ ...creds, allergies: ["peanuts"] });
+    expect(put.status).toBe(403);
+    expect(put.body).toEqual({ error: "not authorized to access this user" });
+
+    mockAuth(); // authenticateUser's one-shot result is spent; re-arm it
+    const del = await request(app)
+      .delete(`/api/users/${VALID_UUID}/allergies`)
+      .send({ ...creds, allergy: "peanuts" });
+    expect(del.status).toBe(403);
+    expect(del.body).toEqual({ error: "not authorized to access this user" });
+  });
+
+  it("reports 500 when the write RPC call itself rejects", async () => {
+    mockAuth();
+    mocks.rpc.mockRejectedValue(new Error("network down"));
+
+    const res = await request(app)
+      .put(`/api/users/${VALID_UUID}/allergies`)
+      .send({ ...creds, allergies: ["peanuts"] });
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "database error" });
+    expect(JSON.stringify(res.body)).not.toContain("network down");
   });
 });
 
@@ -619,6 +732,18 @@ describe("GET /api/users/username/:username", () => {
     expect(res.body).toEqual({ error: "user not found" });
   });
 
+  it("returns 403 when the username belongs to someone else", async () => {
+    mockAuth();
+    // alice is authenticated, but the row the lookup found is bob's
+    mocks.maybeSingle.mockResolvedValue({ data: otherDbRow, error: null });
+
+    const res = await request(app).get("/api/users/username/bob").send(creds);
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "not authorized to access this user" });
+    expect(JSON.stringify(res.body)).not.toContain("tacos");
+  });
+
   it("returns 500 on DB error", async () => {
     mockAuth();
     mocks.maybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
@@ -687,6 +812,7 @@ describe("PUT /api/users/:id/favorite-foods", () => {
     expect(res.text).toBe(""); // route sends an empty body on success
     expect(mocks.rpc).toHaveBeenCalledWith("update_user_details", {
       p_user_id: VALID_UUID,
+      p_caller_id: VALID_UUID,
       p_foods: ["pizza", "burger"],
       p_allergies: [],
     });
@@ -752,6 +878,7 @@ describe("PUT /api/users/:id/allergies", () => {
     expect(res.text).toBe("");
     expect(mocks.rpc).toHaveBeenCalledWith("update_user_details", {
       p_user_id: VALID_UUID,
+      p_caller_id: VALID_UUID,
       p_foods: [],
       p_allergies: ["peanuts", "shellfish"],
     });
@@ -797,6 +924,7 @@ describe("DELETE /api/users/:id/favorite-foods", () => {
     expect(res.text).toBe("");
     expect(mocks.rpc).toHaveBeenCalledWith("delete_user_details", {
       p_user_id: VALID_UUID,
+      p_caller_id: VALID_UUID,
       p_food_to_delete: "pizza",
       p_allergy_to_delete: null,
     });
@@ -827,6 +955,7 @@ describe("DELETE /api/users/:id/allergies", () => {
     expect(res.text).toBe("");
     expect(mocks.rpc).toHaveBeenCalledWith("delete_user_details", {
       p_user_id: VALID_UUID,
+      p_caller_id: VALID_UUID,
       p_food_to_delete: null,
       p_allergy_to_delete: "peanuts",
     });
