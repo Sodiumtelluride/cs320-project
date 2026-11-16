@@ -9,7 +9,6 @@ export default function MapPage() {
       <div className="space-y-3">
         <p className="text-xs font-semibold tracking-[0.18em] text-primary">EXPLORE CAMPUS</p>
         <h1 className="text-4xl font-bold tracking-tight">Campus map</h1>
-        <p className="text-muted-foreground">Find your next meal around UMass Amherst. No account needed.</p>
       </div>
       <CampusMap preview={process.env.NEXT_PUBLIC_MAP_PREVIEW === "1"} />
     </div>

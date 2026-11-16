@@ -58,7 +58,6 @@ export function CampusMap({ preview = false }: { preview?: boolean }) {
     : a.name.localeCompare(b.name));
 
   return <div className="space-y-5">
-    {preview && <p role="status" className="rounded-lg border bg-accent p-3 text-sm">Map preview: four sample dining locations. Backend data is not connected in this mode.</p>}
     <div className="flex flex-wrap items-center gap-3">
       <Button onClick={locate} disabled={locating || loading}><LocateFixed aria-hidden="true" />{locating ? "Finding your location…" : "Use my location"}</Button>
       {userLocation && <Button variant="outline" onClick={() => { locationRequest.current++; setUserLocation(undefined); setLocating(false); setNotice(""); }}>Clear my location</Button>}

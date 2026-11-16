@@ -54,7 +54,7 @@ Explicit UI preview while #42 is being fixed:
 NEXT_PUBLIC_MAP_PREVIEW=1 npm run dev -- --port 3142
 ```
 
-Preview shows four clearly labeled sample dining locations and does not call the map endpoint or display distance rankings. Restart without that variable to use the backend.
+Preview shows four sample dining locations and does not call the map endpoint or display distance rankings. Restart without that variable to use the backend. The preview banner is omitted from the UI at the user's request.
 
 ## Research
 

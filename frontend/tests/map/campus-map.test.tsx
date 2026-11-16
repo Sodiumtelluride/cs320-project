@@ -50,10 +50,9 @@ it("supports retry after a backend failure", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Retry locations" }));
   await screen.findByRole("button", { name: "Berkshire" });
 });
-it("makes preview explicit and does not call the map backend", async () => {
+it("uses the four preview fixtures without calling the map backend", async () => {
   const fetch = api();
   await act(async () => { render(<CampusMap preview />); });
-  expect(screen.getByText(/Backend data is not connected in this mode/)).toBeTruthy();
   expect(screen.getAllByRole("link", { name: /View .* menu/ })).toHaveLength(4);
   expect(fetch).not.toHaveBeenCalled();
 });
