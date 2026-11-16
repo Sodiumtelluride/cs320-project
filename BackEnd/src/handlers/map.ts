@@ -88,7 +88,18 @@ export function isOpen(hours: number[]) {
         throw new Error("Invalid hours given");
 
     if(hours[0] == undefined || hours[1] == undefined)
-        throw new Error("Hours don't exist");
+        throw new Error("Invalid hours given");
+
+    // Check if given hours fit inside 24 hours window
+    if(hours[0] < 0 || hours[1] < 0)
+        throw new Error("Invalid hours given");
+
+    if(hours[0] >= 24 || hours[1] >= 24)
+        throw new Error("Invalid hours given");
+
+    // Make sure we don't close before we open
+    if(hours[0] >= hours[1])
+        throw new Error("Invalid hours given");
 
     // Return status of DC
     const now = new Date();

@@ -34,7 +34,8 @@ describe("isOpen", () => {
     // Checkt that invalid hours are handled correclty
     it("throws when hours are invalid", () => {
         expect(() => isOpen([7])).toThrow("Invalid hours given");
-        expect(() => isOpen([7, -1,])).toThrow("Hours don't exist");
+        expect(() => isOpen([7, -1,])).toThrow("Invalid hours given");
+        expect(() => isOpen([25, 6])).toThrow("Invalid hours given");
     });
 
     // Check that true is returned when the current time is between the given hours
