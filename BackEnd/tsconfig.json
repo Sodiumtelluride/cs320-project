@@ -1,7 +1,7 @@
 {
   // Visit https://aka.ms/tsconfig to read more about this file
   "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.tests.ts", "src/tests/**"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.tests.ts", "src/tests/**","vitest.config.ts","dist"],
   "compilerOptions": {
     // File Layout
     "rootDir": "./src",
@@ -42,6 +42,5 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-  },
-  "exclude": ["vitest.config.ts","dist"]
+  }
 }
