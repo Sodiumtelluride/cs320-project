@@ -29,12 +29,52 @@ type foodInfoJob = {
     menuItemId: number;
     itemNode: DataNode;
 }
+const sixDayLocations = new Set([
+    "Snack Overflow",
+    "The Hub"
+]);
+
+const sevenDayLocations = new Set([
+    "Carney Café",
+    "Charles River Campus of UMass Amherst",
+    "Courtside Café",
+    "Deli Delish",
+    "Green Fields",
+    "Hampshire Café",
+    "ISB Café",
+    "Morrill Café",
+    "Newman Café",
+    "Peet’s Coffee & Tea",
+    "People's Organic Coffee",
+    "Post & Bean Café",
+    "Procrastination Station",
+    "Star Ginger",
+    "Tamales",
+    "Terrace",
+    "Wasabi",
+]);
+
+
 
 export function cleanDate(date: string){
     const cleaned = new Date(date);
     return cleaned.toISOString().split("T")[0]!;
 
 }
+
+export function findDate(defaultDate?: string, sevenDate?: string, sixDate?: string, locationName?: string){
+    let targetDate = defaultDate;
+
+    if(locationName && sevenDayLocations.has(locationName)){
+        targetDate = sevenDate;
+    }
+    if(locationName && sixDayLocations.has(locationName)){
+        targetDate = sixDate;
+    }
+    return targetDate;
+}
+
+
 export function cleanMealType(meal_type:string){
     if(meal_type === "grabngo"){
         return "grab-n-go";
@@ -61,11 +101,15 @@ async function getLocationId(locationName: string){
     return location.id;
 }
 
-export async function populateMenuLocations(locationId: number, menusNode: DataNode){
+export async function populateMenuLocations(locationId: number, menusNode: DataNode, targetDate?: string){
     const mealJobs : populateMeal[] = [];
 
     
     for(const [date, dateNodeValue] of menusNode.data){
+
+        if(targetDate && cleanDate(date) !== targetDate){
+            continue;
+        }
 
         if(!(dateNodeValue instanceof DataNode)){
             continue;
@@ -175,7 +219,7 @@ export async function populateMenuLocations(locationId: number, menusNode: DataN
     }
 }
 
-export async function populateDiningHalls(locationName: string, locationNode: DataNode){
+export async function populateDiningHalls(locationName: string, locationNode: DataNode, defaultDate?: string, sevenDate?: string, sixDate?: string){
 
     const menusValue = locationNode.data.get("Menus");
 
@@ -188,11 +232,13 @@ export async function populateDiningHalls(locationName: string, locationNode: Da
     if(locationId === null){
         return;
     };
+    
+    const targetDate = findDate(defaultDate, sevenDate, sixDate, locationName);
 
-    await populateMenuLocations(locationId, menusValue);
+    await populateMenuLocations(locationId, menusValue, targetDate);
 }
 
-async function populateLocationGroup(groupNode: DataNode){
+async function populateLocationGroup(groupNode: DataNode, defaultDate?: string, sevenDate?: string, sixDate?: string){
     for(const [locationName, locationValue] of groupNode.data){
         if(!(locationValue instanceof DataNode)){
             continue;
@@ -211,11 +257,13 @@ async function populateLocationGroup(groupNode: DataNode){
             continue;
         }
 
-        await populateMenuLocations(locationId, menusValue);
+        const targetDate = findDate(defaultDate, sevenDate, sixDate, locationName);
+
+        await populateMenuLocations(locationId, menusValue, targetDate);
     }
 }
 
-export async function populateMenu(){
+export async function populateMenu(defaultDate?: string, sevenDate?: string, sixDate?: string){
     const scraper = new Scraper();
     const html = await scraper.runScraper("locations-menus/");
     const parser = new AllLocationParser(html);
@@ -238,9 +286,9 @@ export async function populateMenu(){
         }
 
         if(location_groups.has(name)){
-            await populateLocationGroup(value);
+            await populateLocationGroup(value, defaultDate, sevenDate, sixDate);
             continue;
         }
-        await populateDiningHalls(name, value);
+        await populateDiningHalls(name, value, defaultDate, sevenDate, sixDate);
     }
 }
