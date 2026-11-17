@@ -92,11 +92,17 @@ async function getDiningHalls(foodId: number, date: string){
         .from("meal_items")
         .select(`
             meals!inner(
-                locations (name)
+                locations!inner(name)
                 )
             `)
         .eq("menu_item_id", foodId)
-        .eq("meals.date", date);
+        .eq("meals.date", date)
+        .in("meals.locations.name", [
+            "worcester",
+            "franklin",
+            "hampshire",
+            "berkshire"
+        ]);
     
     if(error){
         throw error;
