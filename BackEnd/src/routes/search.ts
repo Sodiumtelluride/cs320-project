@@ -7,7 +7,8 @@ const router = Router();
 // /api/search
 router.get("/", search);
 
-router.get("/", partialSearch);
+// GET /api/search/partial
+router.get("/partial", partialSearch);
 /*  ---------- Post requests ---------- */
 // Probably shouldn't post any requests to search
 

@@ -55,7 +55,7 @@ export class Searcher{
         let menuItem;
         let alreadyInMap = new Set<string>();
         for(const row of mealData){
-            if(row.calories > 10 && !alreadyInMap.has(row.name)){
+            if(row.calories > -1 && !alreadyInMap.has(row.name)){
                 menuItem = new DataNode();
                 menuItem.data.set("ingredients", new DataNode);
                 menuItem.data.set("allergens", new DataNode);
