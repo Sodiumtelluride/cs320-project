@@ -58,9 +58,9 @@ async function getFood(foodName: string){
 async function getIngredients(foodId: number){
   const {data, error} = await supabase
     .from("menu_item_ingredients")
-    .select(`
-      ingredients(name)`)
-    .eq("menu_item_id", foodId);
+    .select(`ingredients(name)`)
+    .eq("menu_item_id", foodId)
+    .order("order", {ascending: true});
   
   if(error){
     throw error;
