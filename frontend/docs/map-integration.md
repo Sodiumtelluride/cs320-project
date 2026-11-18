@@ -34,21 +34,21 @@ Expected response is an array:
 
 `distance` is optional without location. A stable `id` matching menu location IDs is supported and preferred. Existing four dining hall IDs are recognized as names for compatibility with #42. Hours/openStatus are deliberately not shown because #42 supplies temporary values.
 
-## What Victor still needs to do (checked November 16)
+## Backend integration status (November 18)
 
-1. Change the #42 route registration from GET to the documented POST. POST currently returns 404; ordinary GET without a body returns 500.
-2. Accept an empty JSON object when location is not shared; validate coordinates when present.
-3. Return stable IDs matching the frontend menu locations, and verify coordinates (the Morrill value conflicts with the branch comments).
-4. Replace placeholder hours with verified data or null; correct open-status logic and the failing hours test.
-5. Add route tests for requests with/without coordinates, malformed coordinates, and the response contract.
+Victor's #42 is merged in main `1651f24`, and that main commit is merged into this frontend branch. The documented POST route, clean install/startup, opening-hour boundary and reviewed input cases were fixed before the merge.
 
-No automatic GET fallback is included: browsers cannot send the JSON body his current GET handler expects.
+- Local frontend-to-backend requests now return eight locations, with distances when coordinates are supplied. Preview mode is disabled for the connected launch.
+- No location is requested on page load. Missing location (`{}` or `userLocation: null`) returns locations without distances; invalid coordinate types/ranges return 400.
+- The backend still uses hardcoded coordinates and placeholder hours. Hours/open status stay hidden in this frontend. Stable IDs, verified coordinates (including Morrill), real hours and broader backend route tests remain follow-up work.
+
+The frontend uses POST directly; no GET fallback or additional API route is introduced.
 
 ## Run locally
 
 Normal backend connection: `npm run dev -- --port 3142`, then visit `/map`. Configure/start the backend separately. API errors stay visible; fixture data never silently replaces backend responses.
 
-Explicit UI preview while #42 is being fixed:
+Optional sample-data UI preview:
 
 ```sh
 NEXT_PUBLIC_MAP_PREVIEW=1 npm run dev -- --port 3142
@@ -65,8 +65,10 @@ Preview shows four sample dining locations and does not call the map endpoint or
 ## Checks
 
 Run `npm run test:menus`, `npm run lint`, `npm run typecheck`, and `npm run build -- --webpack`.
-The map tests cover the API contract, malformed responses, permission denial, distance ordering, clearing location, retry and explicit preview mode. Real hosted-backend integration remains blocked by #42.
+The map tests cover the API contract, malformed responses, permission denial, distance ordering, clearing location, retry and explicit preview mode. Local integration uses the actual merged backend; hosted deployment and verified location/hours data are separate follow-up work.
 
-Verified locally: 70 component/unit tests (12 new map tests), lint, TypeScript and the production Webpack build pass. Browser checks verified real tile loading, four markers, marker/list selection, menu links and no horizontal overflow at 320px. Production-mode browser checks used controlled API responses and simulated coordinates to verify consent, denial, distance ordering, clearing location and retry. These checks do not establish a live connection to Victor's unfinished endpoint.
+Initial verification: 70 component/unit tests (12 new map tests), lint, TypeScript and the production Webpack build passed. Preview browser checks verified real tile loading, four markers, marker/list selection, menu links and no horizontal overflow at 320px. Earlier production-mode browser checks used controlled API responses and simulated coordinates to verify consent, denial, distance ordering, clearing location and retry.
+
+Connected local verification (November 18): actual POST requests through the frontend proxy return all eight backend locations, and consented test coordinates return numeric distances. Browser checks verified closest-first ordering, marker popups, clearing location back to A–Z, and no horizontal overflow at 320px. No browser response mocks are used for this integration check; coordinates are simulated. All 70 frontend tests, seven backend map tests, lint, frontend TypeScript and backend build pass after the merge. The map API currently needs no database queries; placeholder Supabase settings allow local startup without accessing a hosted database. Account features and database-backed menus require separate valid configuration.
 
 Next.js 16.4.2 emitted an existing-version security advisory during verification. No framework upgrade was included in this frontend map change.
