@@ -1,8 +1,9 @@
-import {describe, it, expect, vi, beforeEach} from "vitest";
+import {describe, it, expect} from "vitest";
 
 import{
     cleanDate,
     cleanMealType,
+    findDate
 } from "../populateMenu.js";
 
 describe("cleanDate", () =>{
@@ -23,6 +24,27 @@ describe("cleanMealType", () =>{
         expect(cleanMealType("breakfast")).toBe("breakfast");
         expect(cleanMealType("lunch")).toBe("lunch");
         expect(cleanMealType("dinner")).toBe("dinner");
+    })
+})
+
+describe("findDate", () =>{ 
+    const defaultDate = "2026-11-18";
+    const sevenDate = "2026-11-17";
+    const sixDate = "2026-11-16";
+
+    it("correctly uses a default date for dining halls", () => { 
+        expect(findDate(defaultDate, sevenDate, sixDate, "Worcester")).toBe(defaultDate);
+        expect(findDate(defaultDate, sevenDate, sixDate, "Berkshire")).toBe(defaultDate);
+    })
+
+    it("correctly uses a seven day date for seve day locations", () =>{
+        expect(findDate(defaultDate, sevenDate, sixDate, "Terrace")).toBe(sevenDate);
+        expect(findDate(defaultDate, sevenDate, sixDate, "Procrastination Station")).toBe(sevenDate);
+    })
+
+    it("correctly uses a six day date for six day locations", () =>{
+        expect(findDate(defaultDate, sevenDate, sixDate, "Snack Overflow")).toBe(sixDate);
+        expect(findDate(defaultDate, sevenDate, sixDate, "The Hub")).toBe(sixDate);
     })
 })
 
