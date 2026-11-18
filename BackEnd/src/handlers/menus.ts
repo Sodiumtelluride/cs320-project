@@ -22,7 +22,10 @@ type Station = {
     foods: FoodSummary[];
 };
 
-type IngredientList = {ingredients: {name:string} | null}
+type IngredientList = {
+    order: number; 
+    ingredients: {name:string} | null
+}
 type AllergenList = {allergens: {name:string} | null}
 
 export type MenuItem = {
@@ -117,6 +120,7 @@ async function getDayData(locationId: number, date: string) {
                 menu_items (
                     *,
                     menu_item_ingredients (
+                        order,
                         ingredients (name)
                     ),
                     menu_item_allergens (
@@ -188,7 +192,8 @@ export function formatFood(item: MenuItem) {
     healthfulnessScore: score !== null && score <= 70 ? score / 10 : null,
     allergens: item.menu_item_allergens?.length ? item.menu_item_allergens.map((r: any) => r.allergens?.name).filter(Boolean) : null,
     ingredients: item.menu_item_ingredients
-        .map((r: any) => r.ingredients?.name)
+        .sort((a,b) => a.order - b.order)
+        .map(r => r.ingredients?.name)
         .filter(Boolean)
         .join(", ") || null,
     sourceUrl: null, 
