@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import * as bcrypt from "bcrypt";
-import { supabase } from "../db/supabase.js";
+import type { PostgrestError } from "@supabase/supabase-js";
+import { supabaseAdmin } from "../db/supabase.js";
 import {
   isStringList,
   parseCreateUserBody,
@@ -13,6 +14,12 @@ import type {
   UserDetails,
   UserRow,
 } from "../db/client.js";
+
+/** Which of the two lists a PUT or DELETE acts on. */
+type ListColumn = "favoriteFoods" | "allergies";
+
+/** The write routes answer with a status code plus either {} or { error }. */
+type DetailsResponse = Response<ErrorResponse>;
 
 /**
  * POST /api/users
@@ -40,7 +47,9 @@ export async function createUser(
     const passwordHash = await bcrypt.hash(password, 12);
 
     // One atomic call: user + password + foods + allergies
-    const { data, error } = await supabase.rpc("create_user_with_details", {
+    // Secret-key client: create_user_with_details is no longer executable by anon
+    // either, so signup cannot be replayed straight against /rpc/ by a stranger.
+    const { data, error } = await supabaseAdmin.rpc("create_user_with_details", {
       p_username: username,
       p_password_hash: passwordHash,
       p_foods: favoriteFoods,
@@ -69,33 +78,48 @@ export async function createUser(
 }
 
 /**
- * GET /api/users  ->  all users with their foods and allergies
+ * GET /api/users  ->  the caller's own account, in a one-element array.
  *
- * The response intentionally omits password hashes.
+ * This used to return every account, which let any signed-in user read everyone
+ * else's email, allergies and favorite foods. There is no admin role yet, so the
+ * route is scoped to the caller's row; a real admin listing needs one first
+ * (tracked as a follow-up). Password hashes stay out of the projection.
  */
-export async function listUsers(
-  _req: Request,
+export async function getOwnProfile(
+  req: Request,
   res: Response<UserDetails[] | ErrorResponse>
 ) {
-  const { data, error } = await supabase.from("users").select(USER_SELECT);
+  const caller = callerId(req);
+  if (!caller) {
+    return res.status(401).json({ error: "authentication required" });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select(USER_SELECT)
+    .eq("user_id", caller);
 
   if (error) {
     console.error(error);
     return res.status(500).json({ error: "database error" });
   }
 
-  const rows = data as unknown as UserRow[];
+  // The query is already scoped to the caller; the filter is here so a row for
+  // somebody else can never slip into the response.
+  const rows = ((data ?? []) as unknown as UserRow[]).filter(
+    (row) => row.user_id.toLowerCase() === caller.toLowerCase()
+  );
   return res.json(rows.map(toUserDetails));
 }
 
-/** GET /api/users/:id  ->  one user (only the authenticated user's own record) */
+/** GET /api/users/:id  ->  one user (requireOwnership has proved it is the caller's) */
 export async function getUserById(
   req: Request<{ id: string }>,
   res: Response<UserDetails | ErrorResponse>
 ) {
   const { id } = req.params;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("users")
     .select(USER_SELECT)
     .eq("user_id", id)
@@ -119,7 +143,7 @@ export async function getUserByUsername(
 ) {
   const { username } = req.params;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("users")
     .select(USER_SELECT)
     .eq("username", username)
@@ -142,6 +166,102 @@ export async function getUserByUsername(
 }
 
 /**
+ * The id authorizeUser proved for this request.
+ *
+ * It comes from the session (or from credentials authorizeUser verified), never
+ * from a client-supplied id, which is what makes it usable as the caller's
+ * identity in the database. requireOwnership already checks it matches the :id in
+ * the path, so the only way it is missing is a route mounted without
+ * authorizeUser.
+ */
+function callerId(req: Request): string | null {
+  return typeof req.authUserId === "string" && req.authUserId !== "" ? req.authUserId : null;
+}
+
+/**
+ * require_profile_owner() (supabase/migrations/20261113073554_verify_caller_identity
+ * .sql) raises 42501 when the caller is not the profile's owner, and PostgREST
+ * answers 42501 when the key the request was made with may not execute the RPC at
+ * all. Either way the database gets the last word, even if a route forgets its
+ * middleware.
+ *
+ * The second case is what a missing SUPABASE_SECRET_KEY looks like from here: the
+ * backend signs the edit with the publishable key, the database refuses it, and the
+ * client sees a 403 — src/db/supabase.ts warns about that configuration at startup.
+ */
+function detailsErrorResponse(error: PostgrestError, res: DetailsResponse) {
+  if (error.code === "42501") {
+    console.error("profile write refused by the database:", error.message);
+    return res.status(403).json({ error: "not authorized to access this user" });
+  }
+  console.error(error);
+  return res.status(500).json({ error: "database error" });
+}
+
+/**
+ * PUT body -> update_user_details.
+ *
+ * The RPC replaces only the lists it is given a non-empty array for, so the list
+ * this route is not touching is sent as an empty array ("leave it alone").
+ */
+async function replaceList(
+  req: Request<{ id: string }>,
+  res: DetailsResponse,
+  column: ListColumn,
+  values: string[]
+) {
+  const caller = callerId(req);
+  if (!caller) {
+    return res.status(401).json({ error: "authentication required" });
+  }
+
+  try {
+    const { error } = await supabaseAdmin.rpc("update_user_details", {
+      p_user_id: req.params.id,
+      p_caller_id: caller,
+      p_foods: column === "favoriteFoods" ? values : [],
+      p_allergies: column === "allergies" ? values : [],
+    });
+    if (error) {
+      return detailsErrorResponse(error, res);
+    }
+    return res.status(200).json();
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "database error" });
+  }
+}
+
+/** DELETE body -> delete_user_details, for one entry of one list. */
+async function removeEntry(
+  req: Request<{ id: string }>,
+  res: DetailsResponse,
+  column: ListColumn,
+  value: string
+) {
+  const caller = callerId(req);
+  if (!caller) {
+    return res.status(401).json({ error: "authentication required" });
+  }
+
+  try {
+    const { error } = await supabaseAdmin.rpc("delete_user_details", {
+      p_user_id: req.params.id,
+      p_caller_id: caller,
+      p_food_to_delete: column === "favoriteFoods" ? value : null,
+      p_allergy_to_delete: column === "allergies" ? value : null,
+    });
+    if (error) {
+      return detailsErrorResponse(error, res);
+    }
+    return res.status(200).json();
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "database error" });
+  }
+}
+
+/**
  * PUT /api/users/:id/favorite-foods  { "favoriteFoods": ["pizza"] }
  *
  * Replaces the whole list. An empty array means "leave it alone" to the
@@ -149,88 +269,47 @@ export async function getUserByUsername(
  */
 export async function replaceFavoriteFoods(
   req: Request<{ id: string }, {}, { favoriteFoods?: unknown }>,
-  res: Response<ErrorResponse>
+  res: DetailsResponse
 ) {
-  const { id } = req.params;
   const { favoriteFoods } = req.body;
   if (!isStringList(favoriteFoods)) {
     return res.status(400).json({ error: "favoriteFoods must be an array of strings" });
   }
-  const { error } = await supabase.rpc("update_user_details", {
-    p_user_id: id,
-    p_foods: favoriteFoods,
-    p_allergies: [] // Empty array to indicate no change to allergies
-  });
-  if (error) {
-    console.error(error);
-    return res.status(500).json({ error: "database error" });
-  }
-  return res.status(200).json();
+  return replaceList(req, res, "favoriteFoods", favoriteFoods);
 }
 
 /** PUT /api/users/:id/allergies  { "allergies": ["peanuts"] } — replaces the list. */
 export async function replaceAllergies(
   req: Request<{ id: string }, {}, { allergies?: unknown }>,
-  res: Response<ErrorResponse>
+  res: DetailsResponse
 ) {
-  const { id } = req.params;
   const { allergies } = req.body;
   if (!isStringList(allergies)) {
     return res.status(400).json({ error: "allergies must be an array of strings" });
   }
-  const { error } = await supabase.rpc("update_user_details", {
-    p_user_id: id,
-    p_foods: [], // Empty array to indicate no change to favorite foods
-    p_allergies: allergies
-  });
-  if (error) {
-    console.error(error);
-    return res.status(500).json({ error: "database error" });
-  }
-  return res.status(200).json();
+  return replaceList(req, res, "allergies", allergies);
 }
 
 /** DELETE /api/users/:id/favorite-foods  { "food": "pizza" } */
 export async function deleteFavoriteFood(
   req: Request<{ id: string }, {}, { food?: string }>,
-  res: Response<ErrorResponse>
+  res: DetailsResponse
 ) {
-  const { id } = req.params;
   const { food } = req.body ?? {};
   if (!food || typeof food !== "string") {
     return res.status(400).json({ error: "food must be a string" });
   }
-  const { error } = await supabase.rpc("delete_user_details", {
-    p_user_id: id,
-    p_food_to_delete: food,
-    p_allergy_to_delete: null
-  });
-  if (error) {
-    console.error(error);
-    return res.status(500).json({ error: "database error" });
-  }
-  return res.status(200).json();
+  return removeEntry(req, res, "favoriteFoods", food);
 }
 
 /** DELETE /api/users/:id/allergies  { "allergy": "peanuts" } */
 export async function deleteAllergy(
   req: Request<{ id: string }, {}, { allergy?: string }>,
-  res: Response<ErrorResponse>
+  res: DetailsResponse
 ) {
-  const { id } = req.params;
   const { allergy } = req.body ?? {};
   if (!allergy || typeof allergy !== "string") {
     return res.status(400).json({ error: "allergy must be a string" });
   }
-  const { error } = await supabase.rpc("delete_user_details", {
-    p_user_id: id,
-    p_food_to_delete: null,
-    p_allergy_to_delete: allergy
-  });
-  if (error) {
-    console.error(error);
-    return res.status(500).json({ error: "database error" });
-  }
-  return res.status(200).json();
+  return removeEntry(req, res, "allergies", allergy);
 }
-
