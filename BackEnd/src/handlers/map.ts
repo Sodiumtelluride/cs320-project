@@ -143,13 +143,25 @@ export async function getAllLocationData(request: Request<{ userLocation: geoCoo
     }
 
     // Only calculate distance if given user's location
-    const calcDistance = request.body.userLocation !== undefined ? true : false;
+    const calcDistance = request.body.userLocation !== undefined && request.body.userLocation !== null ? true : false;
 
     // Make sure coords are valid if given
     if(calcDistance) {
         const userLocation = request.body.userLocation;
         if(!userLocation.hasOwnProperty("latitude") || !userLocation.hasOwnProperty("longitude")) {
             response.status(400).json({ error: "Invalid user location given" });
+            return;
+        }
+        // Make sure coordinates are valid numbers
+        if(typeof userLocation.latitude !== "number" || typeof userLocation.longitude !== "number") {
+            response.status(400).json({ error: "Coordinates must consist of longitude and latitude" });
+            return;
+        }
+        // Make sure coordinates are in range
+        // https://www.google.com/search?q=what+are+the+max+longitude+and+latitudes&rlz=1C1ONGR_enUS1101US1101&oq=what+are+the+max+longitude+and+latitudes&gs_lcrp=EgZjaHJvbWUyBggAEEUYOdIBCDU0MTNqMGo3qAIAsAIA&sourceid=chrome&source=chrome.ob&ie=UTF-8
+        // I guess there's a max longitude and latitude lol, the more you know
+        if(userLocation.latitude < -90 || userLocation.latitude > 90 || userLocation.longitude < -180 || userLocation.longitude > 180) {
+            response.status(400).json({ error: "Coordinates are out of range" });
             return;
         }
     }
