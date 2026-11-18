@@ -1,0 +1,36 @@
+name: Daily Menu Population
+
+on:
+  schedule:
+    - cron: '5 0 * * *'
+      timezone: 'America/New_York'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-menu-population
+
+jobs:
+  populate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: BackEnd
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: BackEnd/package-lock.json
+      - run: npm ci
+      - name: Populate menus
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # The menu writer uses SUPABASE_KEY and needs write access.
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          TZ: America/New_York
+        run: npm run populate:daily

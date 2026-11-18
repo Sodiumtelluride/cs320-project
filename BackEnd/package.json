@@ -8,6 +8,7 @@
     "build": "tsc --build",
     "start": "node ./dist/app.js",
     "start:local": "node --env-file=.env.test ./dist/app.js",
+    "populate:daily": "tsx src/db/dailyPopulation.ts",
     "test": "vitest",
     "test:run": "vitest run",
     "setup:test-db": "supabase start && node scripts/setupTestDB.mjs"
