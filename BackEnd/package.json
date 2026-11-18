@@ -19,6 +19,7 @@
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.19.0",
     "@types/node": "^26.6.4",
+    "@types/supertest": "^7.2.1",
     "supabase": "^2.120.0",
     "supertest": "^7.3.1",
     "tsx": "^4.23.15",

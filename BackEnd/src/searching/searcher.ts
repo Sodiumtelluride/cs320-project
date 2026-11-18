@@ -26,9 +26,14 @@ export class Searcher{
         return this.instance;
     }
 
+    public static async resetData(){
+        this.instance = new Searcher();
+        await this.instance.ready;
+    }
+
     private async getData(){
         //const {data : mealData, error : mealError} = await supabase.from("menu_items").select("name, calories, clean_diet").limit(100000);
-        const promise1 = await supabase.from("menu_items").select("id, name, calories, clean_diet").limit(100000);
+        const promise1 = await supabase.from("menu_items").select("id, name, clean_diet").limit(100000);
         const promise2 = await supabase.from("menu_item_ingredients").select("menu_item_id, ingredient_id").limit(1000000);
         const promise3 = await supabase.from("ingredients").select("id, name").limit(10000);
         const promise4 = await supabase.from("menu_item_allergens").select("menu_item_id, allergen_id").limit(10000);
@@ -55,7 +60,7 @@ export class Searcher{
         let menuItem;
         let alreadyInMap = new Set<string>();
         for(const row of mealData){
-            if(row.calories > -1 && !alreadyInMap.has(row.name)){
+            if(!alreadyInMap.has(row.name)){
                 menuItem = new DataNode();
                 menuItem.data.set("ingredients", new DataNode);
                 menuItem.data.set("allergens", new DataNode);
@@ -145,7 +150,7 @@ export class Searcher{
             }
         }
         
-        return priorityQueue.toArray();
+        return queueToArr(priorityQueue);
     }
 
     private async SearchForSimilar(userSearch : string, filter : string[] = []) : Promise<SearchResult[]> { //basic search, only incorporates name. 
@@ -165,7 +170,7 @@ export class Searcher{
             priorityQueue.enqueue({mealName : mealName, id : mealId, score : score});
         }        
 
-        return priorityQueue.toArray();
+        return queueToArr(priorityQueue);
     } 
 
     public async partialInputSearch(userSearch : string, filter : string[] = []) : Promise<SearchResult[]> { //lightweight search that weights string input matching when typing above all else
@@ -178,7 +183,7 @@ export class Searcher{
             priorityQueue.enqueue(result)
         }
         
-        return priorityQueue.toArray();
+        return queueToArr(priorityQueue);
     }
 
     private getScore(userSearch : string, mealName : string, ingredientNode : DataNode) : number{
@@ -300,3 +305,12 @@ function compareSpelling(word1 : string, word2 : string) : number{
     const similarity = 1 - (distance)/word2.length;
     return (similarity > .5)? similarity : 0;
 }
+
+function queueToArr(queue : MaxPriorityQueue<SearchResult>) : SearchResult[]{
+    const arr = [] as SearchResult[];
+    while(queue.size() > 0){
+        arr.push(queue.pop()!)
+    }
+    return arr;
+}
+
