@@ -16,7 +16,7 @@ import { getDistance } from 'geolib';
 
     These should end up in the database at some point
     List of geocoords corresponding to dining hall name:
-        MORRILL LIFE AND EARTH CAFÉ: 42.38989474997845, -72.52433510908577
+        MORRILL LIFE AND EARTH CAFÉ: 42.385882404679485, -72.52637552637368
 
         WHITMORE CAFÉ: 42.385882404679485, -72.52637552637368
 
@@ -102,8 +102,9 @@ export function isOpen(hours: number[]) {
         throw new Error("Invalid hours given");
 
     // Return status of DC
+    // Adding minutes to hours in case current time is for example 7:30
     const now = new Date();
-    if(now.getHours() > hours[0] && now.getHours() < hours[1])
+    if((now.getHours() * 60 + now.getMinutes()) >= (hours[0] * 60) && (now.getHours() * 60 + now.getMinutes()) < (hours[1] * 60))
         return true;
     return false;
 }
@@ -137,8 +138,23 @@ export function getLocationData(name: string, calcDistance: boolean, userLocatio
 // GET /api/map/locations 
 // Sends all map pins at once | Using this one may be more convenient
 export async function getAllLocationData(request: Request<{ userLocation: geoCoord }>, response: Response) {
+    // Check if request body is formatted correctly
+    if(request.body === undefined) {
+        response.status(400).json({ error: "Request body is missing" });
+        return;
+    }
+
     // Only calculate distance if given user's location
     const calcDistance = request.body.userLocation !== undefined ? true : false;
+
+    // Make sure coords are valid if given
+    if(calcDistance) {
+        const userLocation = request.body.userLocation;
+        if(!userLocation.hasOwnProperty("latitude") || !userLocation.hasOwnProperty("longitude")) {
+            response.status(400).json({ error: "Invalid user location given" });
+            return;
+        }
+    }
 
     // Get data for all halls
     const data = [];
