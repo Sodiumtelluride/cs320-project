@@ -2,7 +2,7 @@ import { MaxPriorityQueue } from '@datastructures-js/priority-queue';
 import { DataNode } from '../scraper/parser.js';
 import { supabase } from '../db/supabase.js';
 
-type SearchResult = {mealName : string, id : number, score : number};
+export type SearchResult = {mealName : string, id : number, score : number};
 
 export class Searcher{
     private static instance : Searcher | null = null;

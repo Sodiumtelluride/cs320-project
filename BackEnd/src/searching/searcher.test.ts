@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll} from "vitest"
 
 vi.mock("../db/supabase.js", () => ({ supabase : { from : vi.fn(),}}));
 
-import { Searcher } from "./searcher";
+import { Searcher, SearchResult } from "./searcher";
 import { supabase } from "../db/supabase";
 
 const fakeDB : Record<string, any[]> = {
@@ -72,5 +72,116 @@ describe("Searcher maintains data correctness, filters, and picks obvious best r
         const result3 = (await searcher.advancedSearch("ice cream sandwich"))[0];
         expect(result3.mealName).toEqual("ice cream sandwich");
     });
+
+    it("Should find misspelling matches at top", async () =>{
+        const searcher = Searcher.getInstance();
+
+        const result1 = (await searcher.advancedSearch("chficken sandich"))[0];
+        expect(result1.mealName).toEqual("chicken sandwich");
+
+        const result2 = (await searcher.advancedSearch("trkey lgs"))[0];
+        expect(result2.mealName).toEqual("turkey legs");
+
+        const result3 = (await searcher.advancedSearch("ice cveam sandich"))[0];
+        expect(result3.mealName).toEqual("ice cream sandwich");
+    });
+
+    it("should find close matches with partial inputs", async () => {
+        const searcher = Searcher.getInstance();
+
+        const result1 = (await searcher.advancedSearch("ice cream"))[0];
+        expect(result1.mealName).toEqual("ice cream sandwich");
+    });
+
+    it("Should find exact matches to have equal name at top for partial search", async ()=>{
+        const searcher = Searcher.getInstance();
+
+        const result1 = (await searcher.partialInputSearch("chicken sandwich"))[0];
+        expect(result1.mealName).toEqual("chicken sandwich");
+
+        const result2 = (await searcher.partialInputSearch("turkey legs"))[0];
+        expect(result2.mealName).toEqual("turkey legs");
+
+        const result3 = (await searcher.partialInputSearch("ice cream sandwich"))[0];
+        expect(result3.mealName).toEqual("ice cream sandwich");
+    });
+
+    it("Should find misspelling matches at top for partial search", async () =>{
+        const searcher = Searcher.getInstance();
+
+        const result1 = (await searcher.partialInputSearch("chficken sandich"))[0];
+        expect(result1.mealName).toEqual("chicken sandwich");
+
+        const result2 = (await searcher.partialInputSearch("trkey lgs"))[0];
+        expect(result2.mealName).toEqual("turkey legs");
+
+        const result3 = (await searcher.partialInputSearch("ice cveam sandich"))[0];
+        expect(result3.mealName).toEqual("ice cream sandwich");
+    });
+
+    it("should find close matches with partial inputs for partial search", async () => {
+        const searcher = Searcher.getInstance();
+
+        const result1 = (await searcher.partialInputSearch("ice cream"))[0];
+        expect(result1.mealName).toEqual("ice cream sandwich");
+    });
+
+    it("should not find any duplicate matches", async () => {
+        const searcher = Searcher.getInstance();
+
+        const set = new Set<string>();
+        const result = await searcher.advancedSearch("easter egg");
+
+        for(const item of result){
+            expect(set.has(item.mealName)).toBeFalsy();
+            set.add(item.mealName);
+        }
+    });
+
+    it("should not find any duplicate matches for partial searches", async () => {
+        const searcher = Searcher.getInstance();
+
+        const set = new Set<string>();
+        const result = await searcher.partialInputSearch("easter egg");
+
+        for(const item of result){
+            expect(set.has(item.mealName)).toBeFalsy();
+            set.add(item.mealName);
+        }
+    });
+
+    it("should filter out allergens in filter", async () => {
+        const searcher = Searcher.getInstance();
+
+        const set = new Set<string>();
+        const result = await searcher.partialInputSearch("easter egg", ["Milk"]);
+
+        for(const item of result){
+            set.add(item.mealName);
+        }
+        expect(set.has("ice cream sandwich")).toBeFalsy();
+    });
+
+    it("should filter out allergens in filter for partial input", async () => {
+        const searcher = Searcher.getInstance();
+
+        const set = new Set<string>();
+        const result = await searcher.partialInputSearch("easter egg", ["Wheat"]);
+
+        for(const item of result){
+            set.add(item.mealName);
+        }
+        expect(set.has("chicken sandwich")).toBeFalsy();
+    });
+
+    it("should enforce clean diet", async () => {
+         const searcher = Searcher.getInstance();
+
+        const set = new Set<string>();
+        const result = await searcher.partialInputSearch("easter egg", ["Vegetarian"]);
+
+        expect(result.length === 1);
+        expect(result[0].mealName === "veggie pork shoulder")
+    })
 
 });
