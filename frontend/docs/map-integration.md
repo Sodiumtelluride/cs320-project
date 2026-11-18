@@ -10,6 +10,7 @@ Branch: `frontend-campus-map`, based on main `0c69b63`. Frontend-only; no backen
 - Requests location only after **Use my location**. Denied/unavailable location keeps the campus map and alphabetical list.
 - Consented coordinates are sent to the map endpoint, not stored in browser storage. Backend distances are meters, straight-line, not walking routes.
 - List and menu links remain available alongside the map. Unknown backend names get markers without invented menu links.
+- With location shared, selecting a marker or list item draws one dashed straight line to that destination and fits both endpoints into view. Changing the selection replaces the line; clearing location removes it. This is a straight-line connection, not walking directions.
 - The new `/api/map/:path*` rewrite uses the existing `BACKEND_URL` setting (default `http://127.0.0.1:3001`).
 
 ## Request / response contract
@@ -72,3 +73,5 @@ Initial verification: 70 component/unit tests (12 new map tests), lint, TypeScri
 Connected local verification (November 18): actual POST requests through the frontend proxy return all eight backend locations, and consented test coordinates return numeric distances. Browser checks verified closest-first ordering, marker popups, clearing location back to A–Z, and no horizontal overflow at 320px. No browser response mocks are used for this integration check; coordinates are simulated. All 70 frontend tests, seven backend map tests, lint, frontend TypeScript and backend build pass after the merge. The map API currently needs no database queries; placeholder Supabase settings allow local startup without accessing a hosted database. Account features and database-backed menus require separate valid configuration.
 
 Next.js 16.4.2 emitted an existing-version security advisory during verification. No framework upgrade was included in this frontend map change.
+
+Line-drawing verification (November 18): browser checks against the running backend confirmed no line without shared location, a visible line after selection, replacement on destination change, removal on clearing location, and no horizontal overflow at 320px. Simulated coordinates were used. Zoom animations are disabled and pending pan animations are stopped on map cleanup to avoid Leaflet callbacks running after a map is removed. Production build passes.
