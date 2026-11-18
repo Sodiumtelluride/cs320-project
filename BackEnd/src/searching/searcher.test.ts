@@ -175,13 +175,22 @@ describe("Searcher maintains data correctness, filters, and picks obvious best r
     });
 
     it("should enforce clean diet", async () => {
-         const searcher = Searcher.getInstance();
+        const searcher = Searcher.getInstance();
 
         const set = new Set<string>();
         const result = await searcher.partialInputSearch("easter egg", ["Vegetarian"]);
 
-        expect(result.length === 1);
+        expect(result.length).toBe(1);
         expect(result[0].mealName === "veggie pork shoulder")
+    })
+
+    it("should prefix match well", async ()=>{
+        const searcher = Searcher.getInstance();
+        expect((await searcher.partialInputSearch("i"))[0].mealName).toEqual("ice cream sandwich");
+        expect((await searcher.partialInputSearch("t"))[0].mealName).toEqual("turkey legs");
+        expect((await searcher.partialInputSearch("v"))[0].mealName).toEqual("veggie pork shoulder");
+        expect((await searcher.partialInputSearch("ve"))[0].mealName).toEqual("veggie pork shoulder");
+        expect((await searcher.partialInputSearch("veg"))[0].mealName).toEqual("veggie pork shoulder");
     })
 
 });
