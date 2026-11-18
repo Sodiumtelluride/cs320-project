@@ -128,8 +128,9 @@ describe("Menu Population Database Integration Tests", () =>{
 
         const {data: ingredients, error: ingredientsError} = await supabase
             .from("menu_item_ingredients")
-            .select("ingredients(name)")
-            .eq("menu_item_id", menuItemId);
+            .select('order, ingredients(name)')
+            .eq("menu_item_id", menuItemId)
+            .order("order", {ascending: true});
         
         if(ingredientsError){
             throw ingredientsError;
@@ -137,15 +138,17 @@ describe("Menu Population Database Integration Tests", () =>{
 
         const ingredientNames = ingredients.map((row: any) => row.ingredients?.name)
 
+        const ingredientOrders = ingredients.map((row: any) => row.order);
+
         expect(ingredientNames).toHaveLength(3);
 
-        expect(ingredientNames).toEqual(
-            expect.arrayContaining([
-                "Test Salt",
-                "Test Breaded Chicken",
-                "Test BBQ Sauce"
-            ])
-        );
+        expect(ingredientNames).toEqual([
+            "Test Salt",
+            "Test Breaded Chicken",
+            "Test BBQ Sauce"
+        ]);
+
+        expect(ingredientOrders).toEqual([0,1,2]);
 
         const {data: allergens, error: allergensError} = await supabase
         .from("menu_item_allergens")

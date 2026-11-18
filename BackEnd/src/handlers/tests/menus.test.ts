@@ -190,8 +190,8 @@ describe("formatFood", () =>{
             cholesterol: null,
 
             menu_item_ingredients: [
-                {ingredients: {name: "Chicken"}},
-                {ingredients: {name: "Bread"}},
+                {order: 0, ingredients: {name: "Chicken"}},
+                {order: 1, ingredients: {name: "Bread"}},
             ],
 
             menu_item_allergens: [
@@ -232,6 +232,21 @@ describe("formatFood", () =>{
         expect(food.nutrition.sodium).toBeNull();
         expect(food.nutrition.cholesterol).toBeNull();
     })
+
+    it("correclty sorts ingredinets by their order", () =>{
+        const foodItem: MenuItem = {
+            ...makeMockFood(1, "Chicken Sandwich"),
+            menu_item_ingredients: [
+                {order: 2, ingredients: {name: "Salt"}},
+                {order: 0, ingredients: {name: "Chicken"}},
+                {order: 1, ingredients: {name: "Bread"}}
+            ]
+        }
+    
+        const food = formatFood(foodItem);
+
+        expect(food.ingredients).toBe("Chicken, Bread, Salt");
+    });
 })
 
 describe("is_grabNGo", () => {
