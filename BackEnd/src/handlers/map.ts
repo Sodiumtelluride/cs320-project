@@ -18,8 +18,6 @@ import { getDistance } from 'geolib';
     List of geocoords corresponding to dining hall name:
         MORRILL LIFE AND EARTH CAFÉ: 42.385882404679485, -72.52637552637368
 
-        WHITMORE CAFÉ: 42.385882404679485, -72.52637552637368
-
         HERTER CAFÉ: 42.38747140261442, -72.52715660614095
 
         COURTSIDE CAFÉ: 42.3888823845504, -72.53167704012627
