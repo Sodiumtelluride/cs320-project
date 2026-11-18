@@ -7,6 +7,7 @@ import usersRouter from "./routes/users.js";
 import menuRouter from "./routes/menus.js";
 import menusRouter from "./routes/menus.js";
 import searchRouter from "./routes/search.js";
+import mapRouter from "./routes/map.js";
 import { login } from "./handlers/auth.js";
 
 // The session secret signs the cookie, so it must come from the environment.
@@ -49,6 +50,9 @@ app.post("/api/authenticate", login);
 app.use("/api/menu", menuRouter);
 app.use("/api/menus", menusRouter);
 app.use("/api/search", searchRouter);
+
+/* ---------- Map Routes ---------- */
+app.use("/api/map", mapRouter);
 
 // Ensure doesn't run on same port as Front End (Front End runs on 3000)
 const PORT = Number(process.env.PORT) || 3001;
