@@ -6,7 +6,7 @@ import { ArrowLeft, ExternalLink, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Menus } from "@/components/menus/menus";
 import { DiningCategoryCards } from "@/components/menus/dining-category-cards";
-import { DINING_CATEGORIES, findCampusLocation, getCategoryLocations } from "@/lib/menus/campus-locations";
+import { DINING_CATEGORIES, findCampusLocation, getDirectCategoryLocations } from "@/lib/menus/campus-locations";
 import { snapshotDataSource } from "@/lib/menus/snapshot-cache";
 import { DEMO_DINING_HALLS } from "@/lib/menus/dining-halls";
 import { categoryHref, menuHref } from "@/lib/menus/links";
@@ -30,7 +30,7 @@ export function MenuPage({ initialHallId, initialDate, initialCampusDate, initia
   const [locationId, setLocationId] = useState(initialHallId);
   const location = findCampusLocation(locationId);
   const category = location && DINING_CATEGORIES.find((entry) => entry.id === location.categoryId);
-  const locations = diningHalls ?? (location ? getCategoryLocations(location.categoryId) : DEMO_DINING_HALLS);
+  const locations = diningHalls ?? (location ? getDirectCategoryLocations(location.categoryId) : DEMO_DINING_HALLS);
   const source = dataSource ?? snapshotDataSource;
 
   function handleSelectionChange(query: MenuQuery) {

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getCampusDate, getLastMenuDate, resolveMenuDate } from "@/lib/menus/date";
 import { DEMO_DINING_HALLS } from "@/lib/menus/dining-halls";
 import { MEALS } from "@/lib/menus/types";
-import { findCampusLocation, isDiningCategory } from "@/lib/menus/campus-locations";
+import { findCampusLocation, getCategoryLocations, isDiningCategory } from "@/lib/menus/campus-locations";
 import { DiningLandingPage } from "@/menus/landing-page";
 import { MenuPage } from "@/menus/menu-page";
 import { DiningCategoryPage } from "@/menus/category-page";
@@ -29,7 +29,7 @@ export default async function MenusRoute({ searchParams }: MenusRouteProps) {
 
   const campusLocation = findCampusLocation(hallId);
   const hall = campusLocation ?? DEMO_DINING_HALLS.find((entry) => entry.id === hallId);
-  if (!hall || (category && campusLocation?.categoryId !== category)) {
+  if (!hall || (category && !getCategoryLocations(category).some((location) => location.id === hallId))) {
     const notice = "That dining location is not available. Choose a location below.";
     return category ? <DiningCategoryPage categoryId={category} notice={notice} /> : <DiningLandingPage notice={notice} />;
   }

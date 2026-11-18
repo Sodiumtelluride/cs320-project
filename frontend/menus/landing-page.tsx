@@ -16,7 +16,7 @@ export function DiningLandingPage({ diningHalls = DEMO_DINING_HALLS, notice }: D
       <section aria-labelledby="dining-title" className="max-w-3xl">
         <p className="mb-5 text-xs font-semibold tracking-[0.18em] text-primary">UMASS AMHERST DINING</p>
         <h1 id="dining-title" className="text-5xl font-bold leading-[1.08] tracking-tight sm:text-6xl">Good food.<br /><span className="text-primary">Your choice.</span></h1>
-        <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">Find your next meal. Explore dining halls, Grab ’n Go locations and cafés around campus.</p>
+        <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">Find your next meal. Explore dining halls, Grab ’n Go, Campus Center and cafés around campus.</p>
       </section>
       <section aria-labelledby="locations-title" className="mt-10 border-t pt-8 sm:mt-12 sm:pt-10">
         <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
