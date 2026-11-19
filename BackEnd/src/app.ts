@@ -8,6 +8,7 @@ import menuRouter from "./routes/menus.js";
 import menusRouter from "./routes/menus.js";
 import searchRouter from "./routes/search.js";
 import bestDiningHallRouter from "./routes/bestDiningHall.js";
+import mapRouter from "./routes/map.js";
 import { login } from "./handlers/auth.js";
 
 // The session secret signs the cookie, so it must come from the environment.
@@ -54,6 +55,9 @@ app.use("/api/search", searchRouter);
 // using the caller's favoriteFoods and allergies. Mounted after the search router so
 // a request to this path is not swallowed by /api/search.
 app.use("/api/search/best-dining-hall", bestDiningHallRouter);
+
+/* ---------- Map Routes ---------- */
+app.use("/api/map", mapRouter);
 
 // Ensure doesn't run on same port as Front End (Front End runs on 3000)
 const PORT = Number(process.env.PORT) || 3001;
