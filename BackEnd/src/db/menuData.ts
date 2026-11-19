@@ -185,9 +185,10 @@ export async function insertFoodInfoBatch(jobs: FoodInfoJob[]){
     ]);
 
     const ingredientRelations = foods.flatMap(food =>
-        [...food.foodIngredients].map(name => ({
+        [...food.foodIngredients].map((name, index) => ({
             menu_item_id: food.menuItemId,
-            ingredient_id: ingredientCache.get(name)!
+            ingredient_id: ingredientCache.get(name)!,
+            order: index
         }))
     );
 
