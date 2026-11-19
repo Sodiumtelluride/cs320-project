@@ -27,7 +27,7 @@ function openWithMouse() {
 }
 
 describe("Header dining navigation", () => {
-  it("keeps the Menus directory link and opens exactly four halls plus two categories on hover", () => {
+  it("keeps the Menus directory link and opens exactly four halls plus three categories on hover", () => {
     render(<MenuNavigation active />);
     const menus = screen.getByRole("link", { name: "Menus" });
     expect(menus.getAttribute("href")).toBe("/menus");
@@ -35,11 +35,11 @@ describe("Header dining navigation", () => {
     expect(screen.queryByRole("list")).toBeNull();
     fireEvent.pointerEnter(menus.parentElement!, { pointerType: "mouse" });
     const panel = screen.getByRole("list", { name: "Dining locations" });
-    expect(panel.children).toHaveLength(6);
+    expect(panel.children).toHaveLength(7);
     for (const [name, id] of [["Berkshire", "berkshire"], ["Worcester", "worcester"], ["Franklin", "franklin"], ["Hampshire", "hampshire"]]) {
       expect(within(panel).getByRole("link", { name }).getAttribute("href")).toBe(`/menus?hall=${id}`);
     }
-    expect(within(panel).getAllByRole("button").map((button) => button.textContent)).toEqual(["Grab ’n Go", "Around Campus"]);
+    expect(within(panel).getAllByRole("button").map((button) => button.textContent)).toEqual(["Grab ’n Go", "Around Campus", "Campus Center"]);
   });
 
   it("opens the four Grab ’n Go links and switches to all sixteen Around Campus links", () => {
@@ -62,6 +62,24 @@ describe("Header dining navigation", () => {
     fireEvent.pointerEnter(within(panel).getByRole("link", { name: "Berkshire" }), { pointerType: "mouse" });
     expect(screen.getAllByRole("list")).toHaveLength(1);
     expect(within(panel).getByRole("link", { name: "Berkshire" }).hasAttribute("aria-expanded")).toBe(false);
+  });
+
+  it("lists all nine Campus Center menus in one scrolling flyout with no Blue Wall submenu", () => {
+    openWithMouse();
+    fireEvent.pointerEnter(screen.getByRole("button", { name: "Campus Center" }), { pointerType: "mouse" });
+    const flyout = screen.getByRole("list", { name: "Campus Center locations" });
+    expect(screen.getAllByRole("list")).toHaveLength(2);
+    expect(within(flyout).getAllByRole("link")).toHaveLength(9);
+    expect(within(flyout).queryByRole("button")).toBeNull();
+    expect(within(flyout).queryByText(/Yum|Paciugo/)).toBeNull();
+    expect(flyout.classList.contains("overflow-y-auto")).toBe(true);
+    for (const [name, id] of [
+      ["Harvest Market", "harvest-market"], ["People’s Organic Coffee", "peoples-organic-coffee"],
+      ["Tavola", "tavola"], ["Green Fields", "green-fields"], ["Tamales", "tamales"],
+      ["Wasabi", "wasabi"], ["Deli Delish", "deli-delish"], ["Star Ginger", "star-ginger"], ["The Grill", "the-grill"],
+    ]) {
+      expect(within(flyout).getByRole("link", { name }).getAttribute("href")).toBe(`/menus?hall=${id}`);
+    }
   });
 
   it("does not treat touch as hover and allows touch users to open both levels with buttons", () => {

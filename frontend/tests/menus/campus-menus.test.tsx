@@ -22,10 +22,12 @@ afterEach(() => {
 });
 
 describe("Campus dining navigation", () => {
-  it("adds two category links without listing individual cafés on Home", () => {
+  it("adds parent category links without listing individual cafés or Blue Wall on Home", () => {
     render(<Home />);
     expect(screen.getByRole("link", { name: "Browse Grab ’n Go locations" }).getAttribute("href")).toBe("/menus?category=grab-n-go");
     expect(screen.getByRole("link", { name: "Browse Around Campus locations" }).getAttribute("href")).toBe("/menus?category=around-campus");
+    expect(screen.getByRole("link", { name: "Browse Campus Center locations" }).getAttribute("href")).toBe("/menus?category=campus-center");
+    expect(screen.queryByRole("link", { name: "Browse Blue Wall locations" })).toBeNull();
     expect(screen.queryByRole("link", { name: "View Whitmore Café menu" })).toBeNull();
     expect(screen.getAllByRole("link", { name: /^View .+ menu$/ })).toHaveLength(4);
   });
