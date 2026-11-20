@@ -11,7 +11,8 @@ const fakeDB : Record<string, any[]> = {
         {id: 2, name : "chicken kebab", clean_diet : "None"},
         {id: 3, name : "veggie pork shoulder", clean_diet : "Vegetarian"},
         {id: 4, name : "turkey legs", clean_diet : "None"},
-        {id: 5, name : "ice cream sandwich", clean_diet : "None"}
+        {id: 5, name : "ice cream sandwich", clean_diet : "None"},
+        {id: 6, name : "air", clean_diet : null}
     ],
     ingredients : [
         {id: 1, name : "chicken"},
@@ -182,7 +183,7 @@ describe("Searcher maintains data correctness, filters, and picks obvious best r
 
         expect(result.length).toBe(1);
         expect(result[0].mealName === "veggie pork shoulder")
-    })
+    });
 
     it("should prefix match well", async ()=>{
         const searcher = Searcher.getInstance();
@@ -191,6 +192,11 @@ describe("Searcher maintains data correctness, filters, and picks obvious best r
         expect((await searcher.partialInputSearch("v"))[0].mealName).toEqual("veggie pork shoulder");
         expect((await searcher.partialInputSearch("ve"))[0].mealName).toEqual("veggie pork shoulder");
         expect((await searcher.partialInputSearch("veg"))[0].mealName).toEqual("veggie pork shoulder");
-    })
+    });
+
+    it("should not filter out items with null allergens when not looking for them",async ()=>{
+        const searcher = Searcher.getInstance();
+        expect((await searcher.advancedSearch("air",[""]))[0].mealName).toEqual("air");
+    });
 
 });

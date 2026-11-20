@@ -1,7 +1,6 @@
 import { MaxPriorityQueue } from '@datastructures-js/priority-queue';
 import { DataNode } from '../scraper/parser.js';
 import { supabase } from '../db/supabase.js';
-import type { PostgrestSingleResponse, PostgrestFilterBuilder } from '@supabase/postgrest-js';
 
 export type SearchResult = {mealName : string, id : number, score : number};
 
@@ -36,8 +35,8 @@ export class Searcher{
         //const {data : mealData, error : mealError} = await supabase.from("menu_items").select("name, calories, clean_diet").limit(100000);
         const promise1 = await supabase.from("menu_items").select("id, name, clean_diet").limit(100000);
         const promise2 = await supabase.from("menu_item_ingredients").select("menu_item_id, ingredient_id").limit(100000);
-        const promise3 = await supabase.from("ingredients").select("id, name").limit(10000);
-        const promise4 = await supabase.from("menu_item_allergens").select("menu_item_id, allergen_id").limit(10000);
+        const promise3 = await supabase.from("ingredients").select("id, name").limit(100000);
+        const promise4 = await supabase.from("menu_item_allergens").select("menu_item_id, allergen_id").limit(100000);
         const promise5 = await supabase.from("allergens").select("id, name").limit(50);
 
         const [
@@ -52,7 +51,7 @@ export class Searcher{
             let e = mealError
             if(mapError) e = mapError;
             else if(ingredientError) e = ingredientError;
-            else if(allergenMapError) e = allergenError
+            else if(allergenError) e = allergenError
             else if(allergenMapError) e = allergenMapError
             console.error("database fetch failed in search getData", e);
             return;
@@ -104,13 +103,13 @@ export class Searcher{
     }
 
     private checkForRequiredTags(filter : string[], mealId : number) : boolean {
-
+        
         const filterSet = new Set<string>(filter);
 
         const mealNode = this.allMeals.get(mealId);
         if(mealNode === undefined) return false;
-        const clean_diet = mealNode.data.get("clean_diet");
-        if(typeof(clean_diet) !== "string") return false;
+        let clean_diet = mealNode.data.get("clean_diet");
+        if(typeof(clean_diet) !== "string") clean_diet = "";
         const tags = new Set<string>(clean_diet.split(", "));
 
         if(filterSet.has("Halal") && !tags.has("Halal")) return false;
