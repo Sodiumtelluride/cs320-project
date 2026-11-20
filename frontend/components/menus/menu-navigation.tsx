@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Utensils } from "lucide-react";
-import { DINING_CATEGORIES, getCategoryLocations, type DiningCategoryId } from "@/lib/menus/campus-locations";
+import { TOP_LEVEL_DINING_CATEGORIES, getCategoryLocations, type DiningCategoryId } from "@/lib/menus/campus-locations";
 import { DEMO_DINING_HALLS } from "@/lib/menus/dining-halls";
 import { menuHref } from "@/lib/menus/links";
 import { cn } from "@/lib/utils";
@@ -85,10 +85,12 @@ export function MenuNavigation({ active }: { active: boolean }) {
         : Math.max(margin, Math.min(left, viewportWidth - flyoutWidth - margin));
       const maximumHeight = buttonBounds.height * 5 + 10;
       const preferredTop = beside ? buttonBounds.top - 5 : primaryBounds.bottom + gap;
-      const flyoutTop = Math.max(margin, Math.min(preferredTop, window.innerHeight - maximumHeight - margin));
+      // A stacked flyout uses the space below the primary list before reducing its visible row count.
+      const minimumHeight = beside ? maximumHeight : buttonBounds.height + 10;
+      const flyoutTop = Math.max(margin, Math.min(preferredTop, window.innerHeight - minimumHeight - margin));
       Object.assign(secondary.style, {
         left: `${flyoutLeft}px`, top: `${flyoutTop}px`, width: `${flyoutWidth}px`,
-        // Five equal rows remain visible; additional names scroll inside this panel.
+        // Show up to five equal rows; additional names scroll inside this panel.
         maxHeight: `${Math.max(44, Math.min(maximumHeight, window.innerHeight - flyoutTop - margin))}px`,
         visibility: "visible",
       });
@@ -186,7 +188,7 @@ export function MenuNavigation({ active }: { active: boolean }) {
               <Link href={menuHref(hall.id)} className={itemClass} onClick={close} onFocus={() => setCategory(null)}>{hall.name}</Link>
             </li>
           ))}
-          {DINING_CATEGORIES.map((entry) => (
+          {TOP_LEVEL_DINING_CATEGORIES.map((entry) => (
             <li key={entry.id} onPointerEnter={(event) => { if (event.pointerType === "mouse") setCategory(entry.id); }}>
               <button
                 ref={(element) => { categoryButtons.current[entry.id] = element; }}

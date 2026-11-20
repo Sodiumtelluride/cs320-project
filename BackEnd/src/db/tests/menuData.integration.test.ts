@@ -13,8 +13,8 @@ import {
 describe("Menu Population Database Integration Tests", () =>{
 
     let menuItemId: number;
-
     let mealId: number;
+    let locationId: number;
 
     it("should insert one meal, and all of its corresponding relationships in the db", async() =>{
 
@@ -41,6 +41,20 @@ describe("Menu Population Database Integration Tests", () =>{
         menuItemId = insertedItems[0]!.id;
         expect(menuItemId).toBeGreaterThan(0);
 
+        const {data: menuItem, error: menuItemError} = await supabase
+            .from("menu_items")
+            .select("name,calories,protein")
+            .eq("id", menuItemId)
+            .single();
+
+        if(menuItemError){
+            throw menuItemError;
+        }
+
+        expect(menuItem.name).toBe("Test Breaded Chicken");
+        expect(menuItem.calories).toBe("500");
+        expect(menuItem.protein).toBe("30g");
+
         await insertFoodInfoBatch([
             {
                 menuItemId,
@@ -50,8 +64,11 @@ describe("Menu Population Database Integration Tests", () =>{
 
         const { data: location, error: locationError} = await supabase
             .from("locations")
+            .insert({
+                name: "test-berkshire",
+                location_type: "dining_hall"
+            })
             .select("id")
-            .eq("id", 2)
             .single();
         
         if(locationError){
@@ -59,10 +76,11 @@ describe("Menu Population Database Integration Tests", () =>{
         }
 
         expect(location).not.toBeNull();
+        locationId = location.id;
     
         const insertedMeals = await insertMeals([
             {
-                location_id: location!.id,
+                location_id: locationId,
                 date: "2026-11-05",
                 meal_type: "test-lunch"
             }
@@ -110,8 +128,9 @@ describe("Menu Population Database Integration Tests", () =>{
 
         const {data: ingredients, error: ingredientsError} = await supabase
             .from("menu_item_ingredients")
-            .select("ingredients(name)")
-            .eq("menu_item_id", menuItemId);
+            .select('order, ingredients(name)')
+            .eq("menu_item_id", menuItemId)
+            .order("order", {ascending: true});
         
         if(ingredientsError){
             throw ingredientsError;
@@ -119,15 +138,17 @@ describe("Menu Population Database Integration Tests", () =>{
 
         const ingredientNames = ingredients.map((row: any) => row.ingredients?.name)
 
+        const ingredientOrders = ingredients.map((row: any) => row.order);
+
         expect(ingredientNames).toHaveLength(3);
 
-        expect(ingredientNames).toEqual(
-            expect.arrayContaining([
-                "Test Salt",
-                "Test Breaded Chicken",
-                "Test BBQ Sauce"
-            ])
-        );
+        expect(ingredientNames).toEqual([
+            "Test Salt",
+            "Test Breaded Chicken",
+            "Test BBQ Sauce"
+        ]);
+
+        expect(ingredientOrders).toEqual([0,1,2]);
 
         const {data: allergens, error: allergensError} = await supabase
         .from("menu_item_allergens")
@@ -172,6 +193,12 @@ describe("Menu Population Database Integration Tests", () =>{
                 .from("menu_items")
                 .delete()
                 .eq("id", menuItemId);
+        }
+        if(locationId){
+            await supabase
+                .from("locations")
+                .delete()
+                .eq("id", locationId);
         }
         await supabase 
             .from("ingredients")

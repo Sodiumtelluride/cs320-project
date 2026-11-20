@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ArrowUpRight, Check, Utensils } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DiningHall } from "@/lib/menus/types";
@@ -11,11 +12,13 @@ interface DiningHallCardsProps {
   selectedHallId?: string;
   onSelect?: (id: string) => void;
   compact?: boolean;
+  children?: ReactNode;
 }
 
-export function DiningHallCards({ diningHalls, selectedHallId, onSelect, compact = false }: DiningHallCardsProps) {
+export function DiningHallCards({ diningHalls, selectedHallId, onSelect, compact = false, children }: DiningHallCardsProps) {
   return (
     <div className={cn("grid gap-4", compact ? "grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-2")}>
+      {children}
       {diningHalls.map((hall) => {
         const selected = selectedHallId === hall.id;
         const className = cn(

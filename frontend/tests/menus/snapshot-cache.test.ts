@@ -58,7 +58,7 @@ describe("snapshot cache", () => {
     const { getCampusDate } = await import("@/lib/menus/date");
     await preloadMenus();
     const dates = fetcher.mock.calls.map(([url]) => new URL(String(url), "http://localhost").searchParams.get("date"));
-    expect(dates.length).toBe(22);
+    expect(dates.length).toBe(31);
     expect(new Set(dates)).toEqual(new Set([getCampusDate()]));
   });
 });

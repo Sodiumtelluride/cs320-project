@@ -1,6 +1,14 @@
 import type { DiningHall } from "./types";
 
-export type DiningCategoryId = "grab-n-go" | "around-campus";
+export type DiningCategoryId = "grab-n-go" | "around-campus" | "campus-center" | "blue-wall";
+
+export interface DiningCategory {
+  id: DiningCategoryId;
+  name: string;
+  description: string;
+  sourceUrl: string;
+  parentId?: DiningCategoryId;
+}
 
 export interface CampusLocation extends DiningHall {
   categoryId: DiningCategoryId;
@@ -10,7 +18,7 @@ export interface CampusLocation extends DiningHall {
   todayMenuUrl?: string;
 }
 
-export const DINING_CATEGORIES = [
+export const DINING_CATEGORIES: readonly DiningCategory[] = [
   {
     id: "grab-n-go",
     name: "Grab ’n Go",
@@ -23,9 +31,26 @@ export const DINING_CATEGORIES = [
     description: "Explore cafés and stores in academic buildings, libraries and residential areas.",
     sourceUrl: "https://www.umassdining.com/locations-menus/around-campus",
   },
-] as const;
+  {
+    id: "campus-center",
+    name: "Campus Center",
+    description: "Explore Blue Wall, Harvest Market and People’s Organic Coffee.",
+    sourceUrl: "https://www.umassdining.com/locations-menus/campus-center",
+  },
+  {
+    id: "blue-wall",
+    name: "Blue Wall",
+    description: "Choose from seven dining outlets inside the Campus Center’s Blue Wall.",
+    sourceUrl: "https://www.umassdining.com/locations-menus/campus-center/blue-wall",
+    parentId: "campus-center",
+  },
+];
+
+export const TOP_LEVEL_DINING_CATEGORIES = DINING_CATEGORIES.filter((category) => !category.parentId);
 
 const aroundCampusSource = "https://www.umassdining.com/locations-menus/around-campus";
+const campusCenterSource = "https://www.umassdining.com/locations-menus/campus-center";
+const blueWallSource = `${campusCenterSource}/blue-wall`;
 const grabDescription = "Takeaway meals and sides for a quick visit to the dining commons.";
 
 export const CAMPUS_LOCATIONS: readonly CampusLocation[] = [
@@ -49,6 +74,16 @@ export const CAMPUS_LOCATIONS: readonly CampusLocation[] = [
   { id: "post-and-bean-cafe", name: "Post & Bean Café", categoryId: "around-campus", subtitle: "Café", area: "John W. Olver Design Building", description: "Coffee and espresso with pastries, sandwiches, snacks and salads.", meals: ["grab-n-go"], sourceUrl: aroundCampusSource },
   { id: "carney-cafe", name: "Carney Café", categoryId: "around-campus", subtitle: "Café", area: "Isenberg School of Management", description: "Flatbreads, grilled cheese, baked goods and coffee in Isenberg.", meals: ["grab-n-go", "daily-offerings"], sourceUrl: aroundCampusSource },
   { id: "terrace", name: "Terrace", categoryId: "around-campus", subtitle: "Café", area: "Fieldstone Apartments", description: "Breakfast tarts, sandwiches, salads and espresso beverages at Fieldstone.", meals: ["breakfast", "lunch", "dinner"], sourceUrl: aroundCampusSource },
+  // Menu IDs match the backend's normalized locations.name values; directory groups are not API locations.
+  { id: "harvest-market", name: "Harvest Market", categoryId: "campus-center", subtitle: "Market", area: "Campus Center, main concourse", description: "A market with hot meals, salads and takeaway options.", meals: ["breakfast", "lunch", "dinner", "grab-n-go"], sourceUrl: campusCenterSource, todayMenuUrl: "https://www.umassdining.com/menu/harvest-blue-wall-menu" },
+  { id: "peoples-organic-coffee", name: "People’s Organic Coffee", categoryId: "campus-center", subtitle: "Coffee and café", area: "Campus Center, main concourse", description: "Coffee, tea, pastries, sandwiches and salads on the main concourse.", meals: ["grab-n-go", "daily-offerings"], sourceUrl: campusCenterSource, todayMenuUrl: "https://www.umassdining.com/menu/people-organic-coffee" },
+  { id: "tavola", name: "Tavola", categoryId: "blue-wall", subtitle: "Blue Wall", area: "Campus Center, Blue Wall", description: "Pizza, pasta, salads and wraps in Blue Wall.", meals: ["lunch", "dinner"], sourceUrl: blueWallSource, todayMenuUrl: "https://www.umassdining.com/menu/tavola" },
+  { id: "green-fields", name: "Green Fields", categoryId: "blue-wall", subtitle: "Blue Wall", area: "Campus Center, Blue Wall", description: "Prepared and build-your-own salads and wraps.", meals: ["lunch", "dinner"], sourceUrl: blueWallSource, todayMenuUrl: "https://www.umassdining.com/menu/green-fields-blue-wall" },
+  { id: "tamales", name: "Tamales", categoryId: "blue-wall", subtitle: "Blue Wall", area: "Campus Center, Blue Wall", description: "Burritos, quesadillas, rice bowls and salads.", meals: ["lunch", "dinner"], sourceUrl: blueWallSource, todayMenuUrl: "https://www.umassdining.com/menu/tamales-blue-wall-menu" },
+  { id: "wasabi", name: "Wasabi", categoryId: "blue-wall", subtitle: "Blue Wall", area: "Campus Center, Blue Wall", description: "Sushi, rice bowls, soup and grilled dishes.", meals: ["lunch", "dinner"], sourceUrl: blueWallSource, todayMenuUrl: "https://www.umassdining.com/menu/wasabi-blue-wall" },
+  { id: "deli-delish", name: "Deli Delish", categoryId: "blue-wall", subtitle: "Blue Wall", area: "Campus Center, Blue Wall", description: "Grinders, rolls and hot sandwiches.", meals: ["lunch", "dinner"], sourceUrl: blueWallSource, todayMenuUrl: "https://www.umassdining.com/menu/deli-delish-blue-wall" },
+  { id: "star-ginger", name: "Star Ginger", categoryId: "blue-wall", subtitle: "Blue Wall", area: "Campus Center, Blue Wall", description: "Asian noodle bowls, rice bowls and other specialties.", meals: ["lunch", "dinner"], sourceUrl: blueWallSource, todayMenuUrl: "https://www.umassdining.com/menu/star-ginger-blue-wall-menu" },
+  { id: "the-grill", name: "The Grill", categoryId: "blue-wall", subtitle: "Blue Wall", area: "Campus Center, Blue Wall", description: "Burgers, grilled sandwiches, chicken and fries.", meals: ["lunch", "dinner"], sourceUrl: blueWallSource, todayMenuUrl: "https://www.umassdining.com/menu/grill-blue-wall-menu" },
 ];
 
 export function isDiningCategory(value: string): value is DiningCategoryId {
@@ -56,6 +91,12 @@ export function isDiningCategory(value: string): value is DiningCategoryId {
 }
 
 export function getCategoryLocations(category: DiningCategoryId): readonly CampusLocation[] {
+  // The Campus Center flyout lists all nine menus without adding a third dropdown level.
+  const children = DINING_CATEGORIES.filter((entry) => entry.parentId === category).map((entry) => entry.id);
+  return CAMPUS_LOCATIONS.filter((location) => location.categoryId === category || children.includes(location.categoryId));
+}
+
+export function getDirectCategoryLocations(category: DiningCategoryId): readonly CampusLocation[] {
   return CAMPUS_LOCATIONS.filter((location) => location.categoryId === category);
 }
 
