@@ -7,6 +7,7 @@ import usersRouter from "./routes/users.js";
 import menuRouter from "./routes/menus.js";
 import menusRouter from "./routes/menus.js";
 import searchRouter from "./routes/search.js";
+import bestDiningHallRouter from "./routes/bestDiningHall.js";
 import mapRouter from "./routes/map.js";
 import { login } from "./handlers/auth.js";
 
@@ -50,6 +51,10 @@ app.post("/api/authenticate", login);
 app.use("/api/menu", menuRouter);
 app.use("/api/menus", menusRouter);
 app.use("/api/search", searchRouter);
+// GET /api/search/best-dining-hall — the commons ranked for the meal it is right now,
+// using the caller's favoriteFoods and allergies. Mounted after the search router so
+// a request to this path is not swallowed by /api/search.
+app.use("/api/search/best-dining-hall", bestDiningHallRouter);
 
 /* ---------- Map Routes ---------- */
 app.use("/api/map", mapRouter);

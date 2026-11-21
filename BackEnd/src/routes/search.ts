@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { search } from "../handlers/search.js";
+import { search, partialSearch } from "../handlers/search.js";
 
 const router = Router();
 
@@ -7,6 +7,8 @@ const router = Router();
 // /api/search
 router.get("/", search);
 
+// GET /api/search/partial
+router.get("/partial", partialSearch);
 /*  ---------- Post requests ---------- */
 // Probably shouldn't post any requests to search
 
