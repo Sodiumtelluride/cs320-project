@@ -5,7 +5,7 @@ export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL(".", import.meta.url)) } },
   test: {
     environment: "jsdom",
-    include: ["tests/menus/**/*.test.{ts,tsx}"],
+    include: ["tests/menus/**/*.test.{ts,tsx}", "tests/map/**/*.test.{ts,tsx}"],
     restoreMocks: true,
   },
 });
