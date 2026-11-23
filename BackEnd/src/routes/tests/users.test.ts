@@ -580,7 +580,21 @@ describe("ownership enforcement on PUT / DELETE", () => {
       })
     );
   });
+
+  it("blocks starring foods for other users", async () => {
+    const path = `/api/users/${OTHER_UUID}/favorite-menu-items/42`;
+    const error = {error: "not authorized to access this user"}; 
+
+    mockAuth();
+    await request(app).put(path).send(creds).expect(403, error);
+
+    mockAuth();
+    await request(app).delete(path).send(creds).expect(403, error);
+
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
 });
+
 
 // ---------------------------------------------------------------------------
 // The caller identity the database checks
@@ -799,6 +813,17 @@ describe("environment validation", () => {
 // ---------------------------------------------------------------------------
 // PUT routes
 // ---------------------------------------------------------------------------
+describe("PUT /api/users/:id/favorite-menu-items/:menuItemId", () => {
+  it("returns 404 when the menu item doesn't exist", async() => {
+    mockAuth();
+    mocks.rpc.mockResolvedValue({data: false, error: null});
+
+    await request(app)
+      .put(`/api/users/${VALID_UUID}/favorite-menu-items/42`)
+      .send(creds)
+      .expect(404, {error: "menu item not found"});
+  })
+})
 
 describe("PUT /api/users/:id/favorite-foods", () => {
   it("updates favorite foods and returns 200", async () => {

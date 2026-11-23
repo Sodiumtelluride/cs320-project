@@ -40,7 +40,8 @@
     "express-session": "^1.19.0",
     "geolib": "^4.0.2",
     "node-html-parser": "^9.0.5",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "skip": "^0.0.13"
   },
   "allowScripts": {
     "bcrypt@5.1.1": true,

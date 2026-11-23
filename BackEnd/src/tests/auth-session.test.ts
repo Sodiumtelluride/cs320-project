@@ -31,7 +31,7 @@ let row = {
   user_id: id,
   username: "student@umass.edu",
   passwords: [{ password_hash: "" }],
-  favorite_foods: [{ food_name: "Pizza", menu_item_id: null}],
+  favorite_foods: [{ food_name: "Pizza", menu_item_id: null}, {food_name: "Pizza", menu_item_id: "32"}],
   allergies: [{ allergy_name: "Milk" }],
 };
 
@@ -88,7 +88,7 @@ describe("the session flow the frontend depends on", () => {
       .toEqual({ success: true });
 
     const profile = await agent.get("/api/auth/me");
-    expect(profile.body).toEqual([{ id, email: "student@umass.edu", favoriteFoods: ["Pizza"], favoriteMenuItems: [], allergies: ["Milk"] }]);
+    expect(profile.body).toEqual([{ id, email: "student@umass.edu", favoriteFoods: ["Pizza"], favoriteMenuItems: [{menuItemId: "32", name: "Pizza"}], allergies: ["Milk"] }]);
     expect(JSON.stringify(profile.body)).not.toContain("password");
 
     expect((await agent.post("/api/auth/logout")).status).toBe(200);
@@ -166,7 +166,7 @@ describe("who may read and edit which account", () => {
         userId: id,
         username: "student@umass.edu",
         favoriteFoods: ["Pizza"],
-        favoriteMenuItems: [],
+        favoriteMenuItems: [{menuItemId: "32", name: "Pizza"}],
         allergies: ["Milk"],
       },
     ]);
@@ -247,5 +247,35 @@ describe("who may read and edit which account", () => {
 
     expect(res.status).toBe(403);
     expect(res.body).toEqual({ error: "not authorized to access this user" });
+  });
+
+  it("correctly favorites/stars a menu item for a user", async () => {
+    const agent = await signIn(request.agent(app));
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({data: true, error: null} as any);
+
+    await agent.put(`/api/users/${id}/favorite-menu-items/42`).expect(200, "");
+
+    expect(supabase.rpc).toHaveBeenCalledWith("set_favorite_menu_item", 
+    {
+      p_user_id: id,
+      p_caller_id: id,
+      p_menu_item_id: "42",
+      p_starred: true,
+    })
+  });
+
+   it("correctly unfavorites/unstars a menu item for a user", async () => {
+    const agent = await signIn(request.agent(app));
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({data: true, error: null} as any);
+
+    await agent.delete(`/api/users/${id}/favorite-menu-items/42`).expect(200, "");
+
+    expect(supabase.rpc).toHaveBeenCalledWith("set_favorite_menu_item", 
+    {
+      p_user_id: id,
+      p_caller_id: id,
+      p_menu_item_id: "42",
+      p_starred: false,
+    })
   });
 });
