@@ -40,7 +40,7 @@ const dbRow = {
   user_id: VALID_UUID,
   username: "alice",
   passwords: [{ password_hash: "$2b$12$hashed" }],
-  favorite_foods: [{ food_name: "pizza" }, { food_name: "sushi" }],
+  favorite_foods: [{ food_name: "pizza", menu_item_id: null}, { food_name: "sushi", menu_item_id: null}],
   allergies: [{ allergy_name: "peanuts" }],
 };
 
@@ -48,6 +48,7 @@ const apiUser = {
   userId: VALID_UUID,
   username: "alice",
   favoriteFoods: ["pizza", "sushi"],
+  favoriteMenuItems: [] = [],
   allergies: ["peanuts"],
 };
 
@@ -58,7 +59,7 @@ const otherDbRow = {
   user_id: OTHER_UUID,
   username: "bob",
   passwords: [{ password_hash: "$2b$12$otherhash" }],
-  favorite_foods: [{ food_name: "tacos" }],
+  favorite_foods: [{ food_name: "tacos", menu_item_id: null}],
   allergies: [],
 };
 
@@ -66,7 +67,7 @@ const otherDbRow = {
 const creds = { username: "alice", password: "s3cret-pass" };
 
 const USER_SELECT =
-  "user_id, username, favorite_foods(food_name), allergies(allergy_name)";
+  "user_id, username, favorite_foods(food_name, menu_item_id::text), allergies(allergy_name)";
 
 /**
  * A list read (GET /api/users) awaits the query builder instead of calling

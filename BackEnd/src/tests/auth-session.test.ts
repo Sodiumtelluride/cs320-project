@@ -31,7 +31,7 @@ let row = {
   user_id: id,
   username: "student@umass.edu",
   passwords: [{ password_hash: "" }],
-  favorite_foods: [{ food_name: "Pizza" }],
+  favorite_foods: [{ food_name: "Pizza", menu_item_id: null}],
   allergies: [{ allergy_name: "Milk" }],
 };
 
@@ -88,7 +88,7 @@ describe("the session flow the frontend depends on", () => {
       .toEqual({ success: true });
 
     const profile = await agent.get("/api/auth/me");
-    expect(profile.body).toEqual([{ id, email: "student@umass.edu", favoriteFoods: ["Pizza"], allergies: ["Milk"] }]);
+    expect(profile.body).toEqual([{ id, email: "student@umass.edu", favoriteFoods: ["Pizza"], favoriteMenuItems: [], allergies: ["Milk"] }]);
     expect(JSON.stringify(profile.body)).not.toContain("password");
 
     expect((await agent.post("/api/auth/logout")).status).toBe(200);
@@ -152,7 +152,7 @@ describe("who may read and edit which account", () => {
           user_id: otherId,
           username: "someone.else@umass.edu",
           passwords: [{ password_hash: "hash-of-someone-else" }],
-          favorite_foods: [{ food_name: "Tacos" }],
+          favorite_foods: [{ food_name: "Tacos", menu_item_id: null}],
           allergies: [{ allergy_name: "Egg" }],
         },
       ])
@@ -166,6 +166,7 @@ describe("who may read and edit which account", () => {
         userId: id,
         username: "student@umass.edu",
         favoriteFoods: ["Pizza"],
+        favoriteMenuItems: [],
         allergies: ["Milk"],
       },
     ]);
@@ -226,7 +227,7 @@ describe("who may read and edit which account", () => {
     expect((await other.get(`/api/users/${id}`)).status).toBe(403);
     // ...and their own list answer is their own row, not the one they asked about.
     expect((await other.get("/api/users")).body).toEqual([
-      { userId: otherId, username: "student@umass.edu", favoriteFoods: [], allergies: [] },
+      { userId: otherId, username: "student@umass.edu", favoriteFoods: [], favoriteMenuItems: [], allergies: [] },
     ]);
 
     expect(supabase.rpc).not.toHaveBeenCalledWith(
