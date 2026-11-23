@@ -9,6 +9,8 @@ import {
   getUserByUsername,
   replaceAllergies,
   replaceFavoriteFoods,
+  starFavoriteMenuItem,
+  unstarFavoriteMenuItem
 } from "../handlers/users.js";
 
 const router = Router();
@@ -29,12 +31,18 @@ router.get("/:id", authorizeUser, requireOwnership, getUserById);
 // PUT  /api/users/:id/favorite-foods    { "favoriteFoods": ["pizza", ...] }
 router.put("/:id/favorite-foods", authorizeUser, requireOwnership, replaceFavoriteFoods);
 // PUT  /api/users/:id/allergies         { "allergies": ["peanuts", ...] }
+
+router.put("/:id/favorite-menu-items/:menuItemId", authorizeUser, requireOwnership, starFavoriteMenuItem)
+
 router.put("/:id/allergies", authorizeUser, requireOwnership, replaceAllergies);
 
 /* ---------- Remove one entry ---------- */
 // DELETE /api/users/:id/favorite-foods  { "food": "pizza" }
 router.delete("/:id/favorite-foods", authorizeUser, requireOwnership, deleteFavoriteFood);
 // DELETE /api/users/:id/allergies       { "allergy": "peanuts" }
+
+router.delete("/:id/favorite-menu-items/:menuItemId", authorizeUser, requireOwnership, unstarFavoriteMenuItem)
+
 router.delete("/:id/allergies", authorizeUser, requireOwnership, deleteAllergy);
 
 // The writes above hand the session-proved id to the RPC as p_caller_id, so

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import * as bcrypt from "bcrypt";
 import { supabaseAdmin } from "./supabase.js";
+import type { User } from "@supabase/supabase-js";
 
 // npm install @supabase/supabase-js bcrypt dotenv
 // npm install -D typescript tsx @types/node @types/bcrypt
@@ -46,7 +47,7 @@ export interface UserRow {
   user_id: string;
   username: string;
   passwords: { password_hash: string }[];
-  favorite_foods: { food_name: string }[];
+  favorite_foods: { food_name: string; menu_item_id: string | null}[];
   allergies: { allergy_name: string }[];
 }
 
@@ -56,12 +57,18 @@ export interface UserDetails {
   userId: string;
   username: string;
   favoriteFoods: string[];
+  favoriteMenuItems: FavoriteMenuItem[];
   allergies: string[];
 }
 
 export interface AuthBody {
   username: string;
   password: string;
+}
+
+export interface FavoriteMenuItem {
+  menuItemId: string;
+  name: string;
 }
 
 /**
@@ -72,12 +79,32 @@ export interface AuthMeUser {
   id: string;
   email: string;
   favoriteFoods: string[];
+  favoriteMenuItems: FavoriteMenuItem[];
   allergies: string[];
+}
+
+function profileFavorites(rows: UserRow["favorite_foods"]){
+  const favoriteFoods: string[] = [];
+  const favoriteMenuItems: FavoriteMenuItem[] = [];
+
+  for(const row of rows){
+    if(row. menu_item_id === null){
+      favoriteFoods.push(row.food_name);
+    }
+    else{
+      favoriteMenuItems.push({
+        menuItemId: row.menu_item_id,
+        name: row.food_name,
+      });
+    }
+  }
+
+  return {favoriteFoods, favoriteMenuItems};
 }
 
 /** Password hashes stay out of every API response. */
 export const USER_SELECT =
-  "user_id, username, favorite_foods(food_name), allergies(allergy_name)";
+  "user_id, username, favorite_foods(food_name, menu_item_id::text), allergies(allergy_name)";
 
 /** The hash is only ever read here, for credential checks. */
 const AUTH_SELECT = "user_id, passwords(password_hash)";
@@ -85,14 +112,14 @@ const AUTH_SELECT = "user_id, passwords(password_hash)";
 export const toUserDetails = (row: UserRow): UserDetails => ({
   userId: row.user_id,
   username: row.username,
-  favoriteFoods: row.favorite_foods.map((f) => f.food_name),
+  ...profileFavorites(row.favorite_foods),
   allergies: row.allergies.map((a) => a.allergy_name),
 });
 
 export const toAuthMeUser = (row: UserRow): AuthMeUser => ({
   id: row.user_id,
   email: row.username,
-  favoriteFoods: row.favorite_foods.map((f) => f.food_name),
+  ...profileFavorites(row.favorite_foods),
   allergies: row.allergies.map((a) => a.allergy_name),
 });
 

@@ -27,8 +27,8 @@ vi.mock("@supabase/supabase-js", () => ({
 
 vi.mock("bcrypt", () => ({ hash: mocks.hash, compare: mocks.compare }));
 
-import { app } from "../app.js";
-import { parseCreateUserBody, toUserDetails } from "../db/client.js";
+import { app } from "../../app.js";
+import { parseCreateUserBody, toUserDetails } from "../../db/client.js";
 
 // ---------------------------------------------------------------------------
 // Fixtures / helpers
@@ -780,7 +780,7 @@ describe("environment validation", () => {
     vi.resetModules();
     vi.stubEnv("SUPABASE_URL", "");
 
-    await expect(import("../db/client.js")).rejects.toThrow(
+    await expect(import("../../db/client.js")).rejects.toThrow(
       "Missing SUPABASE_URL or SUPABASE_KEY in environment"
     );
   });
@@ -789,7 +789,7 @@ describe("environment validation", () => {
     vi.resetModules();
     vi.stubEnv("SUPABASE_KEY", "");
 
-    await expect(import("../db/client.js")).rejects.toThrow(
+    await expect(import("../../db/client.js")).rejects.toThrow(
       "Missing SUPABASE_URL or SUPABASE_KEY in environment"
     );
   });
