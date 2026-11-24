@@ -11,7 +11,7 @@
     "populate:daily": "tsx src/db/dailyPopulation.ts",
     "test": "vitest",
     "test:run": "vitest run",
-    "setup:test-db": "supabase start && node scripts/setupTestDB.mjs"
+    "setup:test-db": "supabase start && supabase migration up --local"
   },
   "keywords": [],
   "author": "",
