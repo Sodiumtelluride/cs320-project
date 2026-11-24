@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { ProfileView } from "@/components/auth/profile-view";
 import { FoodDetailsDialog } from "@/components/menus/food-details-dialog";
 import { authAdapter, saveMenuItemFavorite, type FavoriteMenuItem } from "@/lib/auth";
 import type { MenuDataSource, MenuFood } from "@/lib/menus/types";
@@ -16,13 +17,15 @@ const source: MenuDataSource = {
 };
 let favorites: FavoriteMenuItem[] | undefined;
 let guest: boolean;
+let legacyFoods: string[];
 let write: (() => Promise<Response>) | undefined;
 let fetcher: ReturnType<typeof vi.fn>;
 
-function Harness() {
+function Harness({ profile = false }: { profile?: boolean }) {
   const [selected, setSelected] = useState<MenuFood | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   return <AuthProvider>
+    {profile && <ProfileView />}
     <button ref={trigger} onClick={() => setSelected(food)}>Open item 42</button>
     <button onClick={() => setSelected({ ...food, id: "43" })}>Open item 43</button>
     <FoodDetailsDialog food={selected} query={{ diningHallId: "berkshire", date: "2026-11-23", meal: "lunch" }}
@@ -30,10 +33,15 @@ function Harness() {
   </AuthProvider>;
 }
 beforeEach(() => {
-  favorites = []; guest = false; write = undefined;
+  favorites = []; guest = false; write = undefined; legacyFoods = [];
   fetcher = vi.fn(async (path: string, init?: RequestInit) => {
-    if (path === "/api/auth/me") return Response.json(guest ? [] : [{ id: userId, email: "max@umass.edu", favoriteFoods: [], allergies: [], ...(favorites !== undefined ? { favoriteMenuItems: favorites } : {}) }]);
+    if (path === "/api/auth/me") return Response.json(guest ? [] : [{ id: userId, email: "max@umass.edu", favoriteFoods: legacyFoods, allergies: [], ...(favorites !== undefined ? { favoriteMenuItems: favorites } : {}) }]);
     if (write) return write();
+    if (path.endsWith("/favorite-foods")) {
+      const body = JSON.parse(String(init?.body));
+      legacyFoods = init?.method === "PUT" ? body.favoriteFoods : legacyFoods.filter(name => name !== body.food);
+      return new Response(null, { status: 200 });
+    }
     const id = path.split("/").at(-1)!;
     favorites = init?.method === "PUT" ? [...(favorites ?? []), { menuItemId: id, name: food.name }] : (favorites ?? []).filter(item => item.menuItemId !== id);
     return new Response(null, { status: 200 });
@@ -128,4 +136,54 @@ it("keeps exact IDs from the initial read and rejects malformed favorite data", 
 it("never sends a fixture slug to the write endpoint", async () => {
   await expect(saveMenuItemFavorite(userId, "cheddar-bisque", true)).rejects.toThrow();
   expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("shows a newly starred item in the profile and preserves it after account reload", async () => {
+  const view = render(<Harness profile />);
+  const dialog = await open();
+  fireEvent.click(within(dialog).getByRole("button", { name: `Favorite ${food.name}` }));
+  await within(dialog).findByRole("button", { name: `Unfavorite ${food.name}` });
+  await close();
+  expect(screen.getByRole("button", { name: `Remove ${food.name}` })).toBeTruthy();
+  expect(screen.queryByText("No favorites saved yet.")).toBeNull();
+  view.unmount();
+  render(<Harness profile />);
+  await screen.findByRole("button", { name: `Remove ${food.name}` });
+});
+
+it("removes a profile favorite by ID and clears its nutrition-popup star", async () => {
+  favorites = [{ menuItemId: "42", name: food.name }];
+  render(<Harness profile />);
+  fireEvent.click(await screen.findByRole("button", { name: `Remove ${food.name}` }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: `Remove ${food.name}` })).toBeNull());
+  expect(writeCalls()[0]).toEqual([`/api/users/${userId}/favorite-menu-items/42`, expect.objectContaining({ method: "DELETE" })]);
+  const dialog = await open();
+  expect(within(dialog).getByRole("button", { name: `Favorite ${food.name}` }).getAttribute("aria-pressed")).toBe("false");
+});
+
+it("keeps the profile favorite and its star when profile removal fails", async () => {
+  favorites = [{ menuItemId: "42", name: food.name }];
+  write = async () => Response.json({ error: "unavailable" }, { status: 500 });
+  render(<Harness profile />);
+  fireEvent.click(await screen.findByRole("button", { name: `Remove ${food.name}` }));
+  await screen.findByRole("alert");
+  expect((screen.getByRole("button", { name: `Remove ${food.name}` }) as HTMLButtonElement).disabled).toBe(false);
+  const dialog = await open();
+  expect(within(dialog).getByRole("button", { name: `Unfavorite ${food.name}` }).getAttribute("aria-pressed")).toBe("true");
+});
+
+it("keeps same-name menu favorites separate and preserves manually entered favorites", async () => {
+  favorites = [{ menuItemId: "42", name: food.name }, { menuItemId: "43", name: food.name }];
+  legacyFoods = [food.name];
+  render(<Harness profile />);
+  await waitFor(() => expect(screen.getAllByRole("button", { name: `Remove ${food.name}` })).toHaveLength(3));
+  fireEvent.click(screen.getAllByRole("button", { name: `Remove ${food.name}` })[0]);
+  await waitFor(() => expect(screen.getAllByRole("button", { name: `Remove ${food.name}` })).toHaveLength(2));
+  expect(writeCalls()[0][0]).toBe(`/api/users/${userId}/favorite-menu-items/42`);
+  expect(favorites).toEqual([{ menuItemId: "43", name: food.name }]);
+  expect(legacyFoods).toEqual([food.name]);
+  fireEvent.click(screen.getAllByRole("button", { name: `Remove ${food.name}` })[1]);
+  await waitFor(() => expect(screen.getAllByRole("button", { name: `Remove ${food.name}` })).toHaveLength(1));
+  expect(writeCalls()[1][0]).toBe(`/api/users/${userId}/favorite-foods`);
+  expect(favorites).toHaveLength(1);
 });

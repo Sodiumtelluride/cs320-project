@@ -18,6 +18,7 @@ Frontend branch: `frontend-favorite-food-star`, based on Yash's unmerged `origin
 - An immediate click lock and shared per-user/item pending state prevent duplicate requests, including reopening the popup during a save.
 - Auth loading disables the control. Guests are prompted to log in. Missing favorites data is treated as unknown, with a disabled control and an explanatory message.
 - Late write completions cannot update a different signed-in account.
+- The profile's Favorite foods list displays both ID-based starred menu items and legacy manually entered favorites. Each entry uses its own removal endpoint: menu-item DELETE by ID for starred foods, and the existing text-favorite DELETE for manual entries. Removing a menu favorite updates the shared star state; failed removals retain the entry.
 
 ## Yash / deployment handoff
 

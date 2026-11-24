@@ -101,3 +101,23 @@ Eight frontend files changed:
 Live database persistence remains unverified; Yash’s migrations must be deployed. Changes are saved locally and **uncommitted**. Nothing pushed, no PR opened, nothing merged.
 
 ---
+
+## Follow-up: Profile favorites display — November 24, 2026
+
+Implementation record (AI-generated; student reflection above unchanged):
+
+- Investigated Yash's report that starred foods were missing from the profile.
+- The profile displayed only legacy favoriteFoods strings, while the star saved ID-based favoriteMenuItems.
+- Updated the existing Favorite foods list to display both sources. Each entry retains its identity and uses the appropriate removal endpoint.
+- Removing a starred menu item from the profile updates shared auth state and clears its nutrition-popup star. Failed removal leaves the favorite intact. Manual text favorites remain supported.
+- Added four regression tests covering starring to profile, account reload, removal back to the popup, failed removal, and same-name menu/text favorites.
+- All 114 frontend tests, ESLint, TypeScript, and the production webpack build passed. The build still reports the existing Next.js security advisory; no dependency upgrades were included.
+- Checks use controlled API responses. Hosted database persistence was not tested in this follow-up. No backend changes were made.
+
+### Follow-up request
+
+User:
+
+> yo was looking at your PR for fav foods, the stars work for all the food items, but once you favorite a food it doesn’t show up in the users favorite food section in the profile, anyway to fix that? (edited)
+>
+> Yash said that, anyway we can fix and update the current PR
