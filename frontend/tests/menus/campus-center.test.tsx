@@ -1,9 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render as renderUI, screen, waitFor, within } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { AuthProvider } from "@/components/auth/auth-provider";
+import { authAdapter } from "@/lib/auth";
 import Home from "@/app/page";
 import MenusRoute from "@/app/menus/page";
 import { DiningCategoryPage } from "@/menus/category-page";
 import { MenuPage } from "@/menus/menu-page";
+
+const guestAdapter = { ...authAdapter, getUser: async () => null };
+function render(ui: ReactElement) { return renderUI(<AuthProvider adapter={guestAdapter}>{ui}</AuthProvider>); }
 
 const today = "2026-11-13";
 const outlets = [

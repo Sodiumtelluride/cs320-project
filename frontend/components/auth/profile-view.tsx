@@ -13,12 +13,11 @@ type EditableListProps = {
   description: string;
   placeholder: string;
   emptyLabel: string;
-  items: string[];
+  items: { key: string; label: string; pending?: boolean; remove(): Promise<void> }[];
   onAdd(value: string): Promise<void>;
-  onRemove(value: string): Promise<void>;
 };
 
-function EditableList({ title, description, placeholder, emptyLabel, items, onAdd, onRemove }: EditableListProps) {
+function EditableList({ title, description, placeholder, emptyLabel, items, onAdd }: EditableListProps) {
   const [value, setValue] = useState("");
   const [pending, setPending] = useState(false);
   const [listError, setListError] = useState("");
@@ -37,11 +36,11 @@ function EditableList({ title, description, placeholder, emptyLabel, items, onAd
     finally { setPending(false); }
   }
 
-  async function remove(item: string) {
+  async function remove(item: EditableListProps["items"][number]) {
     if (pending) return;
     setPending(true);
     setListError("");
-    try { await onRemove(item); }
+    try { await item.remove(); }
     catch (cause) { failWith(cause); }
     finally { setPending(false); }
   }
@@ -55,9 +54,9 @@ function EditableList({ title, description, placeholder, emptyLabel, items, onAd
       {items.length ? (
         <ul className="flex flex-wrap gap-2">
           {items.map((item) => (
-            <li key={item} className="inline-flex items-center gap-1.5 rounded-full border bg-accent px-3 py-1 text-sm font-medium">
-              {item}
-              <button type="button" aria-label={`Remove ${item}`} disabled={pending} onClick={() => { void remove(item); }} className="text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50">
+            <li key={item.key} className="inline-flex items-center gap-1.5 rounded-full border bg-accent px-3 py-1 text-sm font-medium">
+              {item.label}
+              <button type="button" aria-label={`Remove ${item.label}`} disabled={pending || item.pending} onClick={() => { void remove(item); }} className="text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50">
                 <X className="size-3.5" aria-hidden="true" />
               </button>
             </li>
@@ -89,6 +88,7 @@ export function ProfileView() {
   const {
     user, loading, sessionError, openAuth, signOut,
     addAllergy, removeAllergy, addFavoriteFood, removeFavoriteFood,
+    setFavoriteMenuItem, isFavoriteMenuItemSaving,
   } = useAuth();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -145,9 +145,8 @@ export function ProfileView() {
               description="Add anything you need to avoid. Tap an item to remove it."
               placeholder="e.g. Peanuts"
               emptyLabel="No allergies saved yet."
-              items={user.allergies ?? []}
+              items={(user.allergies ?? []).map(allergy => ({ key: allergy, label: allergy, remove: () => removeAllergy(allergy) }))}
               onAdd={addAllergy}
-              onRemove={removeAllergy}
             />
           ) : <p role="status" className="text-sm text-muted-foreground">Sign in to manage allergies.</p>}
         </CardContent>
@@ -162,12 +161,21 @@ export function ProfileView() {
           {user ? (
             <EditableList
               title="Favorite foods"
-              description="Add anything you like eating. Tap an item to remove it."
+              description="Star foods from a menu or add them here. Use the remove button to unfavorite them."
               placeholder="e.g. Pizza"
               emptyLabel="No favorites saved yet."
-              items={user.favoriteFoods ?? []}
+              items={[
+                ...(user.favoriteMenuItems ?? []).map(item => ({
+                  key: `menu:${item.menuItemId}`,
+                  label: item.name,
+                  pending: isFavoriteMenuItemSaving(item.menuItemId),
+                  remove: () => setFavoriteMenuItem({ id: item.menuItemId, name: item.name }, false),
+                })),
+                ...(user.favoriteFoods ?? []).map(food => ({
+                  key: `text:${food}`, label: food, remove: () => removeFavoriteFood(food),
+                })),
+              ]}
               onAdd={addFavoriteFood}
-              onRemove={removeFavoriteFood}
             />
           ) : <p role="status" className="text-sm text-muted-foreground">Sign in to save favorites.</p>}
         </CardContent>

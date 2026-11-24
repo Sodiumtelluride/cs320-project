@@ -1,6 +1,7 @@
 import { requestLogin } from "./login-request";
 
-export type AuthUser = { id?: string; email: string; name?: string; favoriteFoods?: string[]; allergies?: string[] };
+export type FavoriteMenuItem = { menuItemId: string; name: string };
+export type AuthUser = { id?: string; email: string; name?: string; favoriteFoods?: string[]; favoriteMenuItems?: FavoriteMenuItem[]; allergies?: string[] };
 export type Credentials = { email: string; password: string };
 export type SignUpInput = Credentials & { name: string };
 export type SignUpResult =
@@ -69,6 +70,13 @@ async function detailsRequest(path: string, method: "PUT" | "DELETE", body: Reco
 const userPath = (userId: string, segment: "allergies" | "favorite-foods") =>
   `/api/users/${encodeURIComponent(userId)}/${segment}`;
 
+export const isMenuItemId = (id: string) => /^[1-9]\d*$/.test(id);
+
+export async function saveMenuItemFavorite(userId: string, menuItemId: string, starred: boolean): Promise<void> {
+  if (!userId || !isMenuItemId(menuItemId)) throw new Error("This item cannot be saved as a favorite.");
+  await detailsRequest(`/api/users/${encodeURIComponent(userId)}/favorite-menu-items/${encodeURIComponent(menuItemId)}`, starred ? "PUT" : "DELETE", {});
+}
+
 async function getUser(): Promise<AuthUser | null> {
   const data = await accountRequest("/api/auth/me");
   if (!Array.isArray(data) || data.length > 1) throw new Error("Unexpected account response.");
@@ -77,7 +85,12 @@ async function getUser(): Promise<AuthUser | null> {
   if (!user || typeof user.id !== "string" || typeof user.email !== "string" ||
       !Array.isArray(user.favoriteFoods) || !user.favoriteFoods.every((x: unknown) => typeof x === "string") ||
       !Array.isArray(user.allergies) || !user.allergies.every((x: unknown) => typeof x === "string")) throw new Error("Unexpected account response.");
-  return { id: user.id, email: user.email, favoriteFoods: user.favoriteFoods, allergies: user.allergies };
+  if (user.favoriteMenuItems !== undefined && (!Array.isArray(user.favoriteMenuItems) ||
+      !user.favoriteMenuItems.every((item: unknown) => item && typeof item === "object" &&
+        typeof (item as FavoriteMenuItem).menuItemId === "string" && isMenuItemId((item as FavoriteMenuItem).menuItemId) &&
+        typeof (item as FavoriteMenuItem).name === "string"))) throw new Error("Unexpected account response.");
+  return { id: user.id, email: user.email, favoriteFoods: user.favoriteFoods, allergies: user.allergies,
+    ...(user.favoriteMenuItems !== undefined ? { favoriteMenuItems: user.favoriteMenuItems } : {}) };
 }
 
 export const authAdapter: AuthAdapter = {

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { authAdapter, type AuthAdapter, type AuthUser } from "@/lib/auth";
+import { authAdapter, saveMenuItemFavorite, type AuthAdapter, type AuthUser } from "@/lib/auth";
 
 export type AuthMode = "login" | "signup";
 
@@ -21,6 +21,8 @@ type AuthContextValue = {
   removeAllergy(allergy: string): Promise<void>;
   addFavoriteFood(food: string): Promise<void>;
   removeFavoriteFood(food: string): Promise<void>;
+  setFavoriteMenuItem(item: { id: string; name: string }, starred: boolean): Promise<void>;
+  isFavoriteMenuItemSaving(menuItemId: string): boolean;
 };
 
 type DetailList = "allergies" | "favoriteFoods";
@@ -38,6 +40,8 @@ export function AuthProvider({ children, adapter = authAdapter }: {
   const [mode, setMode] = useState<AuthMode | null>(null);
   const activeMode = useRef<AuthMode | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
+  const favoriteWrites = useRef(new Set<string>());
+  const [savingFavorites, setSavingFavorites] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -108,6 +112,29 @@ export function AuthProvider({ children, adapter = authAdapter }: {
     await resync();
   }
 
+  async function setFavoriteMenuItem(item: { id: string; name: string }, starred: boolean) {
+    const current = user;
+    if (!current?.id) throw new Error("Please log in to save favorites.");
+    if (!current.favoriteMenuItems) throw new Error("Favorite status is unavailable. Refresh the page and try again.");
+    const key = `${current.id}:${item.id}`;
+    if (favoriteWrites.current.has(key)) return;
+    favoriteWrites.current.add(key);
+    setSavingFavorites(keys => [...keys, key]);
+    try {
+      await saveMenuItemFavorite(current.id, item.id, starred);
+      // A late request must never update a different account after logout/login.
+      setUsers(usersNow => {
+        const base = usersNow[0];
+        if (!base || base.id !== current.id) return usersNow;
+        const remaining = (base.favoriteMenuItems ?? []).filter(favorite => favorite.menuItemId !== item.id);
+        return [{ ...base, favoriteMenuItems: starred ? [...remaining, { menuItemId: item.id, name: item.name }] : remaining }];
+      });
+    } finally {
+      favoriteWrites.current.delete(key);
+      setSavingFavorites(keys => keys.filter(saving => saving !== key));
+    }
+  }
+
   return (
     <AuthContext.Provider value={{
       user, loading, sessionError, mode,
@@ -155,6 +182,8 @@ export function AuthProvider({ children, adapter = authAdapter }: {
       removeAllergy: (allergy) => removeEntry("allergies", allergy),
       addFavoriteFood: (food) => addEntry("favoriteFoods", food),
       removeFavoriteFood: (food) => removeEntry("favoriteFoods", food),
+      setFavoriteMenuItem,
+      isFavoriteMenuItemSaving: (menuItemId) => savingFavorites.includes(`${user?.id}:${menuItemId}`),
     }}>
       {children}
     </AuthContext.Provider>

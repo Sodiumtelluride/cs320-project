@@ -313,3 +313,48 @@ export async function deleteAllergy(
   }
   return removeEntry(req, res, "allergies", allergy);
 }
+
+
+type FavoriteMenuItemRequest = Request<{id: string, menuItemId: string}>;
+
+//Refactored other parts of the fav food code to build this
+async function setFavoriteMenuItem(
+  req: FavoriteMenuItemRequest,
+  res: DetailsResponse,
+  starred: boolean
+){
+  const caller = callerId(req);
+  if(!caller){
+    return res.status(401).json({ error: "authentication required" });
+  }
+
+  const {id, menuItemId} = req.params;
+
+  const {data, error} = await supabaseAdmin.rpc("set_favorite_menu_item", 
+  {
+    p_user_id: id,
+    p_caller_id: caller,
+    p_menu_item_id: menuItemId,
+    p_starred: starred,
+  })
+
+  if(error){
+    return detailsErrorResponse(error, res);
+  }
+
+  if(data == false){
+    return res.status(404).json({error: "menu item not found"});
+  }
+
+  return res.status(200).end();
+}
+
+export function starFavoriteMenuItem(req: FavoriteMenuItemRequest, res: DetailsResponse){
+  
+  return setFavoriteMenuItem(req, res, true);
+}
+
+export function unstarFavoriteMenuItem(req: FavoriteMenuItemRequest, res: DetailsResponse){
+  
+  return setFavoriteMenuItem(req, res, false);
+}

@@ -9,6 +9,7 @@ import { MEALS, type MenuDataSource, type MenuFood, type MenuQuery } from "@/lib
 import { MenuTags } from "./menu-tags";
 import { NutritionFacts } from "./nutrition-facts";
 import { useMenuResource } from "./use-menu-resource";
+import { FavoriteFoodToggle } from "./favorite-food-toggle";
 
 interface FoodDetailsDialogProps {
   food: MenuFood | null;
@@ -76,6 +77,7 @@ export function FoodDetailsDialog({ food, query, diningHallName, dataSource, ret
             <DialogClose asChild><Button variant="outline" size="sm" aria-label="Close food details">Close</Button></DialogClose>
           </div>
           <DialogDescription>{diningHallName} · {MEALS.find((meal) => meal.id === query.meal)?.label} · {formatMenuDate(query.date)}</DialogDescription>
+          {food && <FavoriteFoodToggle food={food} />}
         </DialogHeader>
         {food && <FoodDetailsContent key={food.id} food={food} query={query} dataSource={dataSource} />}
       </DialogContent>
